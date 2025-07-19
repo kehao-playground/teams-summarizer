@@ -13,7 +13,7 @@
   - Acceptance: Extension loads in Chrome developer mode with popup appearing on click
   - Status: ✅ COMPLETED - 5/5 validation checks passed
 
-- [ ] **2. Implement Content Script for SharePoint Stream Detection**
+- [x] **2. Implement Content Script for SharePoint Stream Detection**
   - Objective: Detect when user is on a Teams recording page and extract meeting metadata
   - Implementation:
     - Create content.js that matches SharePoint Stream URL pattern
@@ -23,8 +23,9 @@
   - Requirements: Post-Meeting Transcript Extraction (User Story 1)
   - Dependencies: Task 1
   - Acceptance: Console logs show extracted meeting metadata when on Stream page
+  - Status: ✅ COMPLETED
 
-- [ ] **3. Build Session Interceptor in Background Service Worker**
+- [x] **3. Build Session Interceptor in Background Service Worker**
   - Objective: Capture user's authentication headers for API calls
   - Implementation:
     - Create background.js service worker
@@ -35,6 +36,7 @@
   - Requirements: Technical Approach - Session Reuse
   - Dependencies: Task 1
   - Acceptance: Can log Bearer token and cookies when user navigates Stream pages
+  - Status: ✅ COMPLETED
 
 - [ ] **4. Create Microsoft Stream API Client**
   - Objective: Implement transcript fetching using captured session
