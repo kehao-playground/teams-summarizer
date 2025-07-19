@@ -1,0 +1,207 @@
+# Tasks - Teams Transcript Chrome Extension (MVP)
+
+## Implementation Plan
+
+- [ ] **1. Setup Chrome Extension Project Structure**
+  - Objective: Create the foundational Chrome Extension with Manifest V3
+  - Implementation: 
+    - Create manifest.json with required permissions (activeTab, storage, webRequest, cookies)
+    - Setup folder structure: /src, /popup, /content, /background, /assets
+    - Configure build process with webpack for module bundling
+    - Setup TypeScript configuration for type safety
+  - Requirements: Basic extension that can be loaded in Chrome
+  - Acceptance: Extension loads in Chrome developer mode with popup appearing on click
+
+- [ ] **2. Implement Content Script for SharePoint Stream Detection**
+  - Objective: Detect when user is on a Teams recording page and extract meeting metadata
+  - Implementation:
+    - Create content.js that matches SharePoint Stream URL pattern
+    - Extract meeting IDs (driveId, itemId, transcriptId) from page context
+    - Parse meeting title and duration from DOM elements
+    - Send meeting info to background script via Chrome messaging
+  - Requirements: Post-Meeting Transcript Extraction (User Story 1)
+  - Dependencies: Task 1
+  - Acceptance: Console logs show extracted meeting metadata when on Stream page
+
+- [ ] **3. Build Session Interceptor in Background Service Worker**
+  - Objective: Capture user's authentication headers for API calls
+  - Implementation:
+    - Create background.js service worker
+    - Use chrome.webRequest API to intercept Stream API calls
+    - Extract Bearer token from Authorization headers
+    - Get relevant cookies using chrome.cookies API
+    - Store auth data temporarily in memory (not persistent storage)
+  - Requirements: Technical Approach - Session Reuse
+  - Dependencies: Task 1
+  - Acceptance: Can log Bearer token and cookies when user navigates Stream pages
+
+- [ ] **4. Create Microsoft Stream API Client**
+  - Objective: Implement transcript fetching using captured session
+  - Implementation:
+    - Create streamApiClient.js module
+    - Implement fetchTranscript() function with proper headers
+    - Handle API response parsing for transcript JSON structure
+    - Add error handling for 401/403/404 responses
+    - Implement retry logic with exponential backoff
+  - Requirements: Post-Meeting Transcript Extraction (User Story 1)
+  - Dependencies: Tasks 2, 3
+  - Acceptance: Successfully fetches transcript JSON from Stream API
+
+- [ ] **5. Design and Implement Popup UI**
+  - Objective: Create user interface for extension interaction
+  - Implementation:
+    - Create popup.html with setup, main, and settings views
+    - Implement popup.js for view management and state handling
+    - Add CSS for clean, intuitive design
+    - Create forms for API key configuration
+    - Add loading states and progress indicators
+  - Requirements: Seamless User Experience (User Story 7)
+  - Dependencies: Task 1
+  - Acceptance: Popup shows different views based on state, forms are functional
+
+- [ ] **6. Implement Chrome Storage for Settings**
+  - Objective: Securely store user's API keys and preferences
+  - Implementation:
+    - Create storageManager.js module
+    - Implement encrypted storage for API keys using chrome.storage.local
+    - Add methods for saving/retrieving prompt templates
+    - Store language preferences and provider selection
+    - Implement settings migration for future updates
+  - Requirements: API Key and Provider Management (User Story 5)
+  - Dependencies: Task 5
+  - Acceptance: API keys persist across browser sessions, settings load correctly
+
+- [ ] **7. Build Transcript Formatter Module**
+  - Objective: Transform Stream API response into AI-ready format
+  - Implementation:
+    - Create transcriptFormatter.js module
+    - Parse entries array preserving speaker names and timestamps
+    - Group consecutive entries by speaker
+    - Convert timestamp format from "HH:MM:SS.fffffff" to readable format
+    - Extract participant list and calculate duration
+    - Handle Chinese (zh-tw) and other language tags
+  - Requirements: AI-Powered Summary Generation (User Story 2)
+  - Dependencies: Task 4
+  - Acceptance: Formatted transcript shows clear speaker transitions with timestamps
+
+- [ ] **8. Implement OpenAI Integration**
+  - Objective: Create GPT 4.1 client for summary generation
+  - Implementation:
+    - Create openaiClient.js module
+    - Implement chat completion API calls with proper error handling
+    - Leverage GPT 4.1's 1M+ token context window
+    - Create default prompts for meeting summaries
+    - Support multiple output languages
+    - Handle rate limiting and API errors gracefully
+  - Requirements: AI-Powered Summary Generation (User Story 2)
+  - Dependencies: Tasks 6, 7
+  - Acceptance: Generates coherent summaries from formatted transcripts
+
+- [ ] **9. Implement Claude Integration**
+  - Objective: Add Anthropic Claude Sonnet 4 as alternative provider
+  - Implementation:
+    - Create anthropicClient.js module
+    - Implement messages API with proper headers
+    - Adapt prompts for Claude's format
+    - Handle 200k token context window
+    - Ensure feature parity with OpenAI integration
+  - Requirements: API Key and Provider Management (User Story 5)
+  - Dependencies: Tasks 6, 7
+  - Acceptance: Can switch between OpenAI and Claude for summaries
+
+- [ ] **10. Create Summary Export Module**
+  - Objective: Enable multiple export formats for generated summaries
+  - Implementation:
+    - Create exportManager.js module
+    - Implement Markdown generation with proper formatting
+    - Add HTML export with styling
+    - Create plain text export option
+    - Generate filenames with meeting title and date
+    - Implement clipboard copy functionality
+  - Requirements: Flexible Export Options (User Story 4)
+  - Dependencies: Tasks 8, 9
+  - Acceptance: Can download summaries in all three formats
+
+- [ ] **11. Implement Prompt Template System**
+  - Objective: Allow customizable prompts for different meeting types
+  - Implementation:
+    - Create promptManager.js module
+    - Define default templates (general, action-items, technical)
+    - Implement custom prompt editor in settings
+    - Add template import/export functionality
+    - Support prompt variables (language, focus areas)
+  - Requirements: Prompt Customization (User Story 6)
+  - Dependencies: Tasks 5, 6
+  - Acceptance: Can switch between prompts and edit custom templates
+
+- [ ] **12. Add Multi-Language Summary Support**
+  - Objective: Generate summaries in different languages
+  - Implementation:
+    - Extend AI clients to support language parameters
+    - Add language selector in popup UI
+    - Update prompts to specify output language
+    - Test with Chinese (zh-TW), English, Japanese
+    - Ensure proper character encoding in exports
+  - Requirements: Multi-Language Summary Support (User Story 3)
+  - Dependencies: Tasks 8, 9, 10
+  - Acceptance: Summaries generated correctly in selected language
+
+- [ ] **13. Implement Large Transcript Chunking**
+  - Objective: Handle meetings longer than AI context limits
+  - Implementation:
+    - Create chunkingStrategy.js module
+    - Implement smart chunking by speaker turns
+    - Generate section summaries for each chunk
+    - Combine section summaries into final summary
+    - Show progress during multi-chunk processing
+  - Requirements: Constraints - API Limits
+  - Dependencies: Tasks 7, 8, 9
+  - Acceptance: 3+ hour meetings process successfully without errors
+
+- [ ] **14. Create Error Handling and User Feedback System**
+  - Objective: Provide clear feedback for all error scenarios
+  - Implementation:
+    - Create errorHandler.js module
+    - Implement user-friendly error messages
+    - Add retry mechanisms for transient failures
+    - Create fallback options for each error type
+    - Log errors for debugging without exposing sensitive data
+  - Requirements: Error Handling Strategy (Design)
+  - Dependencies: All previous tasks
+  - Acceptance: All error scenarios show helpful messages and recovery options
+
+- [ ] **15. Write BDD Tests with Cucumber.js**
+  - Objective: Implement acceptance tests for key user journeys
+  - Implementation:
+    - Setup Cucumber.js with Puppeteer for extension testing
+    - Write feature files for main scenarios
+    - Implement step definitions for Gherkin scenarios
+    - Create test fixtures for different transcript types
+    - Add CI/CD integration for automated testing
+  - Requirements: Testing Strategy - BDD/ATDD Approach
+  - Dependencies: All feature tasks (1-14)
+  - Acceptance: All Gherkin scenarios pass with real extension
+
+- [ ] **16. Optimize Performance and Resource Usage**
+  - Objective: Ensure extension runs efficiently
+  - Implementation:
+    - Implement transcript caching to avoid repeated API calls
+    - Lazy load UI components in popup
+    - Optimize memory usage in background script
+    - Add performance monitoring
+    - Minimize extension package size
+  - Requirements: Performance Optimization (Design)
+  - Dependencies: All previous tasks
+  - Acceptance: Extension uses <50MB memory, operations complete within targets
+
+## Quality Gates
+- [ ] All acceptance criteria from requirements are met
+- [ ] BDD tests cover all major user journeys
+- [ ] No console errors in normal operation
+- [ ] API keys are never exposed in logs or network traffic
+- [ ] Extension works with both GPT 4.1 and Claude Sonnet 4
+- [ ] Supports Chinese and English meeting transcripts
+- [ ] All export formats produce valid files
+- [ ] Error messages are helpful and actionable
+- [ ] Performance meets specified targets
+- [ ] Code is properly typed with TypeScript
