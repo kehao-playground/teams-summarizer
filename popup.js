@@ -183,11 +183,17 @@ function setupEventListeners() {
  */
 async function initializeState() {
     try {
+        // Initialize storage manager
+        await storageManager.initialize();
+        
         // Load settings from storage
-        currentState.settings = await loadSettings();
+        currentState.settings = await storageManager.loadSettings();
+        
+        // Check if API key exists for current provider
+        const hasApiKey = await storageManager.getApiKeyInfo(currentState.settings.provider);
         
         // Determine initial view
-        if (!currentState.settings || !currentState.settings.apiKey) {
+        if (!hasApiKey) {
             currentState.view = VIEWS.SETUP;
         } else {
             currentState.view = VIEWS.MAIN;
@@ -318,19 +324,27 @@ async function handleSetupSubmit(event) {
     setLoading(true, 'Saving settings...');
     
     try {
+        // Validate API key format
+        const validation = storageManager.validateApiKey(provider, apiKey);
+        if (!validation.valid) {
+            throw new Error(validation.error);
+        }
+        
         // Test API key
         await testApiKey(provider, apiKey);
         
-        // Save settings
+        // Save API key securely
+        await storageManager.saveApiKey(provider, apiKey);
+        
+        // Save settings (without API key)
         const settings = {
             provider,
-            apiKey,
             language,
             prompt: PROMPT_TEMPLATES.default,
             customPrompts: {}
         };
         
-        await saveSettings(settings);
+        await storageManager.saveSettings(settings);
         currentState.settings = settings;
         
         showToast('Settings saved successfully!', 'success');
@@ -468,7 +482,13 @@ function formatTranscriptForAI(transcript) {
  * Generate summary using AI provider
  */
 async function generateSummaryWithAI(transcript, settings) {
-    const { provider, apiKey, language, prompt } = settings;
+    const { provider, language, prompt } = settings;
+    
+    // Get API key securely
+    const apiKey = await storageManager.getApiKey(provider);
+    if (!apiKey) {
+        throw new Error('API key not found. Please check your settings.');
+    }
     
     const fullPrompt = `${prompt}\n\nOutput language: ${language}`;
     const content = `Meeting transcript:\n${transcript.content}\n\nParticipants: ${transcript.metadata.participants}\nDuration: ${transcript.metadata.duration}`;
@@ -723,13 +743,15 @@ async function handleSavePromptSettings() {
     let prompt = PROMPT_TEMPLATES[promptTemplate] || PROMPT_TEMPLATES.default;
     if (promptTemplate === 'custom' && customPrompt.trim()) {
         prompt = customPrompt.trim();
+        // Save custom prompt as template
+        await storageManager.savePromptTemplate('user_custom', prompt);
     }
     
     currentState.settings.prompt = prompt;
     currentState.settings.language = outputLanguage;
     
     try {
-        await saveSettings(currentState.settings);
+        await storageManager.saveSettings(currentState.settings);
         showToast('Settings saved successfully!', 'success');
     } catch (error) {
         console.error('[Popup] Error saving prompt settings:', error);
@@ -746,7 +768,7 @@ async function handleResetSettings() {
     }
     
     try {
-        await chrome.storage.local.clear();
+        await storageManager.clearAllData();
         currentState.settings = null;
         showToast('Settings reset successfully!', 'success');
         setTimeout(() => {
@@ -761,7 +783,7 @@ async function handleResetSettings() {
 /**
  * Populate settings view with current settings
  */
-function populateSettingsView() {
+async function populateSettingsView() {
     if (!currentState.settings) return;
     
     const { provider, language, prompt } = currentState.settings;
@@ -774,16 +796,35 @@ function populateSettingsView() {
     
     elements.currentProvider.querySelector('.provider-name').textContent = 
         providerNames[provider] || 'Unknown';
-    elements.currentProvider.querySelector('.provider-status').textContent = 
-        'API key configured';
+    
+    // Get API key info (without exposing the actual key)
+    const apiKeyInfo = await storageManager.getApiKeyInfo(provider);
+    if (apiKeyInfo) {
+        elements.currentProvider.querySelector('.provider-status').textContent = 
+            `API key configured (${apiKeyInfo.keyPrefix})`;
+    } else {
+        elements.currentProvider.querySelector('.provider-status').textContent = 
+            'No API key configured';
+    }
     
     // Update language selection
     elements.outputLanguage.value = language || 'en';
+    
+    // Load custom prompt templates
+    const customTemplates = await storageManager.loadPromptTemplates();
     
     // Find matching prompt template
     let selectedTemplate = 'custom';
     for (const [key, template] of Object.entries(PROMPT_TEMPLATES)) {
         if (template === prompt) {
+            selectedTemplate = key;
+            break;
+        }
+    }
+    
+    // Check custom templates
+    for (const [key, templateData] of Object.entries(customTemplates)) {
+        if (templateData.content === prompt) {
             selectedTemplate = key;
             break;
         }
@@ -845,20 +886,6 @@ async function testApiKey(provider, apiKey) {
     }
 }
 
-/**
- * Load settings from Chrome storage
- */
-async function loadSettings() {
-    const result = await chrome.storage.local.get(['settings']);
-    return result.settings || null;
-}
-
-/**
- * Save settings to Chrome storage
- */
-async function saveSettings(settings) {
-    await chrome.storage.local.set({ settings });
-}
 
 /**
  * Send message to background script
