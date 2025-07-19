@@ -87,7 +87,7 @@ https://{tenant}.sharepoint.com/personal/{user}/_layouts/15/stream.aspx?id=/pers
 
 ### Project Structure
 ```
-teams-transcript-extension/
+.
 ├── src/
 │   ├── background/          # Service worker
 │   ├── content/             # Content script
@@ -96,7 +96,9 @@ teams-transcript-extension/
 ├── assets/                  # Icons and static files
 ├── manifest.json            # Extension manifest
 ├── webpack.config.js        # Build configuration
-└── tsconfig.json           # TypeScript configuration
+├── tsconfig.json           # TypeScript configuration
+├── test/                   # Test files
+└── dist/                   # Built extension files
 ```
 
 ### Available Scripts
@@ -147,7 +149,9 @@ The extension provides helpful error messages for:
 
 ## License
 
-MIT License - see LICENSE file for details
+Licensed under the Apache License 2.0 - see [LICENSE](LICENSE) file for details.
+
+Copyright 2025 Kehao Chen <kehao.chen@happyhacking.ninja>
 
 ## Support
 
