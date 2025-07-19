@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teams 會議摘要工具</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 初始設定畫面 -->
+        <div id="setup-view" class="view active">
+            <div class="header">
+                <h2>🔧 設定 AI 服務</h2>
+                <p class="subtitle">開始使用 Teams 會議摘要工具</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="provider-select">AI 服務供應商</label>
+                <select id="provider-select">
+                    <option value="openai">OpenAI GPT-4.1</option>
+                    <option value="anthropic">Claude Sonnet 4</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="api-key">API 金鑰</label>
+                <input type="password" id="api-key" placeholder="請輸入您的 API 金鑰" required>
+            </div>
+            
+            <button id="save-settings" class="btn primary">開始使用</button>
+            
+            <div class="info-text">
+                <small>💡 您的 API 金鑰將安全地儲存在瀏覽器本地</small>
+            </div>
+        </div>
+
+        <!-- 主畫面 -->
+        <div id="main-view" class="view">
+            <div class="header">
+                <h2>🎯 Teams 會議摘要</h2>
+            </div>
+            
+            <div class="meeting-info">
+                <h3 id="meeting-title">未偵測到會議</h3>
+                <span id="meeting-duration">請在 Teams 錄影頁面使用此工具</span>
+            </div>
+
+            <div class="actions">
+                <button id="extract-transcript" class="btn primary" disabled>
+                    📝 提取逐字稿
+                </button>
+                <button id="generate-summary" class="btn secondary" style="display: none;">
+                    ✨ 產生摘要
+                </button>
+            </div>
+
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <div class="loading-text">
+                    <span id="loading-message">處理中...</span>
+                </div>
+            </div>
+
+            <div id="transcript-preview" class="preview-section" style="display: none;">
+                <div class="section-header">
+                    <h4>📄 逐字稿預覽</h4>
+                    <span class="count" id="transcript-count"></span>
+                </div>
+                <div id="transcript-content" class="content-box"></div>
+            </div>
+
+            <div id="summary-view" class="preview-section" style="display: none;">
+                <div class="section-header">
+                    <h4>📝 會議摘要</h4>
+                    <div class="tabs">
+                        <button class="tab active" data-format="rendered">預覽</button>
+                        <button class="tab" data-format="markdown">Markdown</button>
+                        <button class="tab" data-format="html">HTML</button>
+                    </div>
+                </div>
+                <div id="summary-content" class="content-box"></div>
+                
+                <div class="export-buttons">
+                    <button id="download-md" class="btn secondary">📥 下載 .md</button>
+                    <button id="copy-html" class="btn secondary">📋 複製 HTML</button>
+                </div>
+            </div>
+
+            <div id="error-message" class="error" style="display: none;">
+                <div class="error-icon">⚠️</div>
+                <div class="error-content">
+                    <strong>發生錯誤</strong>
+                    <span id="error-text"></span>
+                </div>
+            </div>
+            
+            <div class="footer">
+                <button id="settings-btn" class="btn text-btn">⚙️ 設定</button>
+            </div>
+        </div>
+
+        <!-- 設定畫面 -->
+        <div id="settings-view" class="view">
+            <div class="header">
+                <h2>⚙️ 進階設定</h2>
+            </div>
+            
+            <div class="form-group">
+                <label for="settings-provider">AI 服務供應商</label>
+                <select id="settings-provider">
+                    <option value="openai">OpenAI GPT-4.1</option>
+                    <option value="anthropic">Claude Sonnet 4</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="settings-api-key">API 金鑰</label>
+                <input type="password" id="settings-api-key" placeholder="請輸入您的 API 金鑰">
+            </div>
+            
+            <div class="form-group">
+                <label for="settings-language">輸出語言</label>
+                <select id="settings-language">
+                    <option value="en">English</option>
+                    <option value="zh-TW" selected>繁體中文</option>
+                    <option value="zh-CN">简体中文</option>
+                    <option value="ja">日本語</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>摘要模板</label>
+                <select id="prompt-template">
+                    <option value="default">預設摘要</option>
+                    <option value="action-items">重點行動項目</option>
+                    <option value="technical">技術會議</option>
+                    <option value="custom">自訂</option>
+                </select>
+            </div>
+            
+            <div class="form-group" id="custom-prompt-section" style="display: none;">
+                <label for="custom-prompt">自訂提示</label>
+                <textarea id="custom-prompt" placeholder="輸入您的自訂提示模板..." rows="4"></textarea>
+            </div>
+            
+            <div class="actions">
+                <button id="save-updated-settings" class="btn primary">儲存設定</button>
+                <button id="back-to-main" class="btn secondary">返回</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
