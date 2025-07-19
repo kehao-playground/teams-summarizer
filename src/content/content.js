@@ -297,10 +297,60 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             });
             break;
             
+        case 'extractTranscript':
+            handleExtractTranscript(sendResponse);
+            break;
+            
         default:
             sendResponse({ success: false, error: 'Unknown action' });
     }
+    
+    // Return true to indicate async response
+    return true;
 });
+
+/**
+ * Handle transcript extraction request
+ * @param {Function} sendResponse - Response callback
+ */
+async function handleExtractTranscript(sendResponse) {
+    try {
+        console.log('[Teams Summarizer] Starting transcript extraction...');
+        
+        // Get current meeting info
+        const meetingInfo = extractMeetingInfo();
+        
+        if (!meetingInfo || !meetingInfo.isValid) {
+            sendResponse({
+                success: false,
+                error: 'No valid meeting information found. Please ensure you are on a Teams recording page.'
+            });
+            return;
+        }
+        
+        // Use StreamApiClient to fetch transcript
+        const client = new StreamApiClient();
+        const transcript = await client.fetchTranscript(meetingInfo);
+        
+        console.log('[Teams Summarizer] Transcript extracted successfully');
+        
+        sendResponse({
+            success: true,
+            data: {
+                transcript: transcript,
+                meetingInfo: meetingInfo
+            }
+        });
+        
+    } catch (error) {
+        console.error('[Teams Summarizer] Error extracting transcript:', error);
+        
+        sendResponse({
+            success: false,
+            error: error.message || 'Failed to extract transcript'
+        });
+    }
+}
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {

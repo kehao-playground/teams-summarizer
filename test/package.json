@@ -1,0 +1,32 @@
+{
+  "name": "teams-transcript-extension-tests",
+  "version": "1.0.0",
+  "description": "Tests for Teams Transcript Chrome Extension",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:unit": "jest test/unit",
+    "test:integration": "jest test/integration"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "@types/chrome": "^0.0.254",
+    "puppeteer": "^21.6.1",
+    "@cucumber/cucumber": "^10.2.1",
+    "chai": "^4.3.10"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": ["<rootDir>/test/setup.js"],
+    "testMatch": [
+      "**/test/**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/**/*.test.js"
+    ],
+    "coverageDirectory": "test/coverage",
+    "coverageReporters": ["text", "lcov", "html"]
+  }
+}

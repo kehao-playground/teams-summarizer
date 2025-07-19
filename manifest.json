@@ -32,7 +32,7 @@
         "https://*.sharepoint.com/*/stream.aspx*",
         "https://teams.microsoft.com/*"
       ],
-      "js": ["src/content/content.js"]
+      "js": ["src/api/streamApiClient.js", "src/content/content.js"]
     }
   ],
   "background": {

@@ -232,6 +232,10 @@ function setupMessageHandling() {
                 handleClearSession(sendResponse);
                 break;
                 
+            case 'getAuthHeaders':
+                handleGetAuthHeaders(sendResponse);
+                break;
+                
             default:
                 sendResponse({ success: false, error: 'Unknown action' });
         }
@@ -320,6 +324,23 @@ function handleClearSession(sendResponse) {
         sendResponse({ success: true, message: 'Session cleared' });
     } catch (error) {
         console.error('[Teams Summarizer] Error clearing session:', error);
+        sendResponse({ success: false, error: error.message });
+    }
+}
+
+/**
+ * Handle get auth headers request
+ * @param {Function} sendResponse - Response callback
+ */
+function handleGetAuthHeaders(sendResponse) {
+    try {
+        const headers = getAuthHeaders();
+        sendResponse({
+            success: true,
+            data: headers
+        });
+    } catch (error) {
+        console.error('[Teams Summarizer] Error getting auth headers:', error);
         sendResponse({ success: false, error: error.message });
     }
 }

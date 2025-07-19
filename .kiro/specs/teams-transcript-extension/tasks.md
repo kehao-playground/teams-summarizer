@@ -38,7 +38,7 @@
   - Acceptance: Can log Bearer token and cookies when user navigates Stream pages
   - Status: ✅ COMPLETED
 
-- [ ] **4. Create Microsoft Stream API Client**
+- [x] **4. Create Microsoft Stream API Client**
   - Objective: Implement transcript fetching using captured session
   - Implementation:
     - Create streamApiClient.js module
@@ -49,6 +49,7 @@
   - Requirements: Post-Meeting Transcript Extraction (User Story 1)
   - Dependencies: Tasks 2, 3
   - Acceptance: Successfully fetches transcript JSON from Stream API
+  - Status: ✅ COMPLETED
 
 - [ ] **5. Design and Implement Popup UI**
   - Objective: Create user interface for extension interaction
