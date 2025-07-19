@@ -135,6 +135,28 @@ export type SummaryErrorCode =
   | 'TOKEN_LIMIT_EXCEEDED'
   | 'INVALID_RESPONSE';
 
+// Formatted Transcript for AI
+export interface FormattedTranscript {
+  metadata: {
+    participants: string[];
+    duration: string;
+    language: string;
+    totalEntries: number;
+    startTime: string;
+    endTime: string;
+  };
+  content: string;
+  sections: TranscriptSection[];
+}
+
+export interface TranscriptSection {
+  speaker: string;
+  startTime: string;
+  endTime: string;
+  text: string;
+  confidence: number;
+}
+
 // Utility Types
 export type LanguageCode = 'en' | 'zh-TW' | 'zh-CN' | 'ja';
 

@@ -1,0 +1,31 @@
+{
+  "metadata": {
+    "participants": [
+      "Alice 王",
+      "Bob 李",
+      "Carol 張"
+    ],
+    "duration": "00:00:30",
+    "language": "zh-tw",
+    "totalEntries": 5,
+    "startTime": "00:00:05",
+    "endTime": "00:00:35"
+  },
+  "stats": {
+    "totalSections": 3,
+    "totalParticipants": 3,
+    "wordCount": 14,
+    "averageConfidence": 0.92,
+    "speakingTime": {
+      "Alice 王": "00:00:11",
+      "Bob 李": "00:00:11",
+      "Carol 張": "00:00:06"
+    },
+    "duration": "00:00:30"
+  },
+  "chunkSizes": {
+    "small": 1,
+    "medium": 1,
+    "large": 1
+  }
+}

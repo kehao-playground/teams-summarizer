@@ -257,3 +257,35 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
+### Security - DO NOT COMMIT SENSITIVE DATA ###
+# Real Teams meeting transcripts or Stream API responses
+**/Stream\ Content*.json
+**/real-transcript*.json
+**/actual-transcript*.json
+
+# Files that might contain real meeting data
+**/*-real.json
+**/*-actual.json
+**/*-prod.json
+**/*-production.json
+
+# Personal or company-specific data files
+**/*personal*.json
+**/*company*.json
+**/*confidential*.json
+
+# Backup files that might contain sensitive data
+**/*.bak
+**/*.backup
+**/*-backup.*
+
+# API keys or credentials (even though extension uses user's keys)
+**/*-keys.json
+**/*-credentials.json
+**/*-secrets.json
+
+# Any files ending with warnings for sensitive content
+**/*-sensitive.*
+**/*-private.*
+**/*-confidential.*
+

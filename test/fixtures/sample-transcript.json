@@ -1,0 +1,102 @@
+{
+    "$schema": "http://stream.office.com/schemas/transcript.json",
+    "version": "1.0.0",
+    "type": "Transcript",
+    "entries": [
+        {
+            "id": "sample-entry-001",
+            "speechServiceResultId": "test-speech-001",
+            "text": "大家好，歡迎參加今天的產品規劃會議。",
+            "speakerId": "speaker-001@example.com",
+            "speakerDisplayName": "Alice 王",
+            "confidence": 0.95,
+            "startOffset": "00:00:05.1234567",
+            "endOffset": "00:00:09.7654321",
+            "hasBeenEdited": false,
+            "roomId": null,
+            "spokenLanguageTag": "zh-tw"
+        },
+        {
+            "id": "sample-entry-002",
+            "speechServiceResultId": "test-speech-002",
+            "text": "我們今天要討論新功能的開發進度和下一步的計劃。",
+            "speakerId": "speaker-001@example.com",
+            "speakerDisplayName": "Alice 王",
+            "confidence": 0.88,
+            "startOffset": "00:00:10.1234567",
+            "endOffset": "00:00:16.7654321",
+            "hasBeenEdited": false,
+            "roomId": null,
+            "spokenLanguageTag": "zh-tw"
+        },
+        {
+            "id": "sample-entry-003",
+            "speechServiceResultId": "test-speech-003",
+            "text": "好的，我這邊準備了一些技術架構的建議。",
+            "speakerId": "speaker-002@example.com",
+            "speakerDisplayName": "Bob 李",
+            "confidence": 0.92,
+            "startOffset": "00:00:17.1234567",
+            "endOffset": "00:00:22.7654321",
+            "hasBeenEdited": false,
+            "roomId": null,
+            "spokenLanguageTag": "zh-tw"
+        },
+        {
+            "id": "sample-entry-004",
+            "speechServiceResultId": "test-speech-004",
+            "text": "我們可以先從使用者體驗的角度來思考這個功能。",
+            "speakerId": "speaker-002@example.com",
+            "speakerDisplayName": "Bob 李",
+            "confidence": 0.89,
+            "startOffset": "00:00:23.1234567",
+            "endOffset": "00:00:28.7654321",
+            "hasBeenEdited": false,
+            "roomId": null,
+            "spokenLanguageTag": "zh-tw"
+        },
+        {
+            "id": "sample-entry-005",
+            "speechServiceResultId": "test-speech-005",
+            "text": "那我們先確認一下時程安排，預計什麼時候可以完成？",
+            "speakerId": "speaker-003@example.com",
+            "speakerDisplayName": "Carol 張",
+            "confidence": 0.94,
+            "startOffset": "00:00:29.1234567",
+            "endOffset": "00:00:35.7654321",
+            "hasBeenEdited": false,
+            "roomId": null,
+            "spokenLanguageTag": "zh-tw"
+        }
+    ],
+    "events": [
+        {
+            "id": "sample-event-001",
+            "eventType": "CallStarted",
+            "userId": "user-001@example.com",
+            "userDisplayName": "Alice 王",
+            "startOffset": "00:00:01.1234567"
+        },
+        {
+            "id": "sample-event-002",
+            "eventType": "TranscriptStarted",
+            "userId": "user-001@example.com",
+            "userDisplayName": "Alice 王",
+            "startOffset": "00:00:02.1234567"
+        },
+        {
+            "id": "sample-event-003",
+            "eventType": "TranscriptPublished",
+            "userId": "user-002@example.com",
+            "userDisplayName": "Bob 李",
+            "startOffset": "00:00:03.1234567"
+        },
+        {
+            "id": "sample-event-004",
+            "eventType": "TranscriptStopped",
+            "userId": "user-001@example.com",
+            "userDisplayName": "Alice 王",
+            "startOffset": "00:00:36.1234567"
+        }
+    ]
+}
