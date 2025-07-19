@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teams Meeting Summarizer</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">Teams Summarizer</h1>
+                <div class="status-indicator">
+                    <span id="status-dot" class="status-dot"></span>
+                    <span id="status-text" class="status-text">Checking...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Setup View -->
+        <div id="setup-view" class="view hidden">
+            <div class="view-content">
+                <div class="setup-header">
+                    <h2>Welcome! Let's set up your AI provider</h2>
+                    <p class="subtitle">Choose your preferred AI service to generate meeting summaries</p>
+                </div>
+
+                <form id="setup-form" class="setup-form">
+                    <div class="form-group">
+                        <label for="provider-select" class="form-label">AI Provider</label>
+                        <select id="provider-select" class="form-select" required>
+                            <option value="">Select provider...</option>
+                            <option value="openai">OpenAI (GPT 4.1) - Recommended</option>
+                            <option value="anthropic">Anthropic (Claude Sonnet 4)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="api-key" class="form-label">API Key</label>
+                        <div class="input-group">
+                            <input 
+                                type="password" 
+                                id="api-key" 
+                                class="form-input" 
+                                placeholder="Enter your API key..."
+                                required
+                            >
+                            <button type="button" id="toggle-key-visibility" class="btn-icon" title="Show/Hide API Key">
+                                👁️
+                            </button>
+                        </div>
+                        <div class="form-help">
+                            <span id="api-help-text">Select a provider to see instructions</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="language-select" class="form-label">Default Output Language</label>
+                        <select id="language-select" class="form-select">
+                            <option value="en">English</option>
+                            <option value="zh-TW">繁體中文</option>
+                            <option value="zh-CN">简体中文</option>
+                            <option value="ja">日本語</option>
+                        </select>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" id="save-settings" class="btn btn-primary">
+                            <span class="btn-text">Save Settings</span>
+                            <span class="btn-spinner hidden">⏳</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Main View -->
+        <div id="main-view" class="view hidden">
+            <div class="view-content">
+                <!-- Meeting Info -->
+                <div id="meeting-info" class="meeting-info">
+                    <div class="meeting-header">
+                        <h3 id="meeting-title" class="meeting-title">No meeting detected</h3>
+                        <span id="meeting-duration" class="meeting-duration"></span>
+                    </div>
+                    <div id="meeting-url" class="meeting-url"></div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-section">
+                    <button id="extract-transcript" class="btn btn-primary btn-large" disabled>
+                        <span class="btn-icon">📝</span>
+                        <span class="btn-text">Extract Transcript</span>
+                        <span class="btn-spinner hidden">⏳</span>
+                    </button>
+                </div>
+
+                <!-- Transcript Preview -->
+                <div id="transcript-preview" class="section hidden">
+                    <div class="section-header">
+                        <h4 class="section-title">Transcript Preview</h4>
+                        <div class="transcript-meta">
+                            <span id="transcript-entries">0 entries</span>
+                            <span id="transcript-participants">0 participants</span>
+                        </div>
+                    </div>
+                    <div id="transcript-content" class="transcript-content"></div>
+                    
+                    <div class="action-section">
+                        <button id="generate-summary" class="btn btn-success btn-large">
+                            <span class="btn-icon">🤖</span>
+                            <span class="btn-text">Generate Summary</span>
+                            <span class="btn-spinner hidden">⏳</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Summary View -->
+                <div id="summary-view" class="section hidden">
+                    <div class="section-header">
+                        <h4 class="section-title">Meeting Summary</h4>
+                        <div class="summary-controls">
+                            <select id="summary-format" class="form-select small">
+                                <option value="rendered">Preview</option>
+                                <option value="markdown">Markdown</option>
+                                <option value="html">HTML</option>
+                                <option value="text">Plain Text</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="summary-content" class="summary-content"></div>
+                    
+                    <div class="export-actions">
+                        <button id="download-md" class="btn btn-outline">
+                            <span class="btn-icon">💾</span>
+                            Download .md
+                        </button>
+                        <button id="copy-summary" class="btn btn-outline">
+                            <span class="btn-icon">📋</span>
+                            Copy to Clipboard
+                        </button>
+                        <button id="regenerate-summary" class="btn btn-outline">
+                            <span class="btn-icon">🔄</span>
+                            Regenerate
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings View -->
+        <div id="settings-view" class="view hidden">
+            <div class="view-content">
+                <div class="settings-header">
+                    <h2>Settings</h2>
+                    <button id="back-to-main" class="btn btn-text">
+                        ← Back to Main
+                    </button>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="section-title">AI Provider</h3>
+                    <div class="provider-info">
+                        <div id="current-provider" class="provider-card">
+                            <div class="provider-name">Not configured</div>
+                            <div class="provider-status">No API key</div>
+                        </div>
+                        <button id="change-provider" class="btn btn-outline">Change Provider</button>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="section-title">Prompt Templates</h3>
+                    <div class="form-group">
+                        <label for="prompt-select" class="form-label">Template</label>
+                        <select id="prompt-select" class="form-select">
+                            <option value="default">Default Summary</option>
+                            <option value="action-items">Action Items Focus</option>
+                            <option value="technical">Technical Meeting</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    
+                    <div id="custom-prompt-group" class="form-group hidden">
+                        <label for="custom-prompt" class="form-label">Custom Prompt</label>
+                        <textarea 
+                            id="custom-prompt" 
+                            class="form-textarea"
+                            placeholder="Enter your custom prompt template..."
+                            rows="4"
+                        ></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="output-language" class="form-label">Output Language</label>
+                        <select id="output-language" class="form-select">
+                            <option value="en">English</option>
+                            <option value="zh-TW">繁體中文</option>
+                            <option value="zh-CN">简体中文</option>
+                            <option value="ja">日本語</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="settings-actions">
+                    <button id="save-prompt-settings" class="btn btn-primary">
+                        Save Settings
+                    </button>
+                    <button id="reset-settings" class="btn btn-outline btn-danger">
+                        Reset to Defaults
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <button id="settings-btn" class="btn btn-text btn-small">
+                    ⚙️ Settings
+                </button>
+                <span class="version">v1.0.0</span>
+            </div>
+        </footer>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay hidden">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <div id="loading-text" class="loading-text">Processing...</div>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div id="toast-container" class="toast-container"></div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

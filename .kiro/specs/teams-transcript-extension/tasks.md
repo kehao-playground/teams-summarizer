@@ -51,7 +51,7 @@
   - Acceptance: Successfully fetches transcript JSON from Stream API
   - Status: ✅ COMPLETED
 
-- [ ] **5. Design and Implement Popup UI**
+- [x] **5. Design and Implement Popup UI**
   - Objective: Create user interface for extension interaction
   - Implementation:
     - Create popup.html with setup, main, and settings views
@@ -62,6 +62,7 @@
   - Requirements: Seamless User Experience (User Story 7)
   - Dependencies: Task 1
   - Acceptance: Popup shows different views based on state, forms are functional
+  - Status: ✅ COMPLETED
 
 - [ ] **6. Implement Chrome Storage for Settings**
   - Objective: Securely store user's API keys and preferences
