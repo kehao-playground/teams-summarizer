@@ -1,0 +1,267 @@
+name: BDD Tests - Chrome Extension
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  bdd-tests:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+        test-profile: [smoke, regression]
+        
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Install additional BDD dependencies
+      run: |
+        npm install --save-dev @cucumber/cucumber puppeteer chai
+        
+    - name: Build Chrome extension
+      run: npm run build
+      
+    - name: Verify extension build
+      run: |
+        if [ ! -f "dist/manifest.json" ]; then
+          echo "Extension build failed - manifest.json not found"
+          exit 1
+        fi
+        echo "Extension build verified"
+        
+    - name: Run unit tests first
+      run: npm test
+      
+    - name: Run BDD tests - ${{ matrix.test-profile }}
+      run: |
+        export HEADLESS=true
+        export TEST_TIMEOUT=60000
+        export PARALLEL_TESTS=2
+        node test/bdd/test-runner.js ${{ matrix.test-profile }}
+        
+    - name: Upload test reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: bdd-test-reports-${{ matrix.node-version }}-${{ matrix.test-profile }}
+        path: |
+          test/bdd/reports/
+          test/bdd/reports/screenshots/
+        retention-days: 7
+        
+    - name: Upload extension build
+      uses: actions/upload-artifact@v4
+      if: matrix.test-profile == 'smoke' && matrix.node-version == '20.x'
+      with:
+        name: chrome-extension-build
+        path: dist/
+        retention-days: 30
+        
+    - name: Comment PR with test results
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request' && always()
+      with:
+        script: |
+          const fs = require('fs');
+          const path = 'test/bdd/reports/test-summary.json';
+          
+          if (fs.existsSync(path)) {
+            const summary = JSON.parse(fs.readFileSync(path, 'utf8'));
+            
+            const comment = `## 🧪 BDD Test Results - ${{ matrix.test-profile }} (Node ${{ matrix.node-version }})
+            
+            | Metric | Value |
+            |--------|-------|
+            | Total Scenarios | ${summary.totalScenarios} |
+            | ✅ Passed | ${summary.passedScenarios} |
+            | ❌ Failed | ${summary.failedScenarios} |
+            | ⏭️ Skipped | ${summary.skippedScenarios} |
+            | Success Rate | ${summary.successRate}% |
+            | Duration | ${(summary.duration / 1000000).toFixed(2)}s |
+            
+            ### Feature Results
+            ${summary.features.map(f => `- **${f.name}**: ${f.passed}✅ ${f.failed}❌ ${f.skipped}⏭️`).join('\n')}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          }
+
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run security audit
+      run: npm audit --audit-level=moderate
+      
+    - name: Run dependency check
+      run: |
+        npx license-checker --summary
+        npx license-checker --failOn 'GPL-2.0;GPL-3.0'
+        
+    - name: Scan for secrets
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+
+  performance-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build extension
+      run: npm run build
+      
+    - name: Run performance tests
+      run: |
+        export HEADLESS=true
+        export PERFORMANCE_TEST=true
+        node test/bdd/test-runner.js chrome '@performance'
+        
+    - name: Upload performance reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: performance-test-reports
+        path: test/bdd/reports/
+        retention-days: 30
+
+  cross-platform-tests:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build extension
+      run: npm run build
+      
+    - name: Run smoke tests
+      run: |
+        export HEADLESS=true
+        node test/bdd/test-runner.js smoke
+        
+    - name: Upload test reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: cross-platform-reports-${{ matrix.os }}
+        path: test/bdd/reports/
+        retention-days: 7
+
+  test-summary:
+    needs: [bdd-tests, security-scan, performance-tests, cross-platform-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Download all test reports
+      uses: actions/download-artifact@v4
+      with:
+        pattern: '*test-reports*'
+        merge-multiple: true
+        path: all-reports/
+        
+    - name: Generate combined test report
+      run: |
+        echo "# 📊 Test Summary Report" > test-summary.md
+        echo "" >> test-summary.md
+        echo "## Test Results by Matrix" >> test-summary.md
+        echo "" >> test-summary.md
+        
+        # Process all test summary files
+        find all-reports -name "test-summary.json" | while read file; do
+          if [ -f "$file" ]; then
+            echo "Processing: $file"
+            # Extract key metrics and add to summary
+            node -e "
+              const fs = require('fs');
+              const summary = JSON.parse(fs.readFileSync('$file', 'utf8'));
+              console.log(\`- **Test Run**: \${summary.totalScenarios} scenarios, \${summary.successRate}% success rate\`);
+            " >> test-summary.md
+          fi
+        done
+        
+        echo "" >> test-summary.md
+        echo "## Overall Status" >> test-summary.md
+        
+        if [ "${{ needs.bdd-tests.result }}" = "success" ] && 
+           [ "${{ needs.security-scan.result }}" = "success" ] && 
+           [ "${{ needs.performance-tests.result }}" = "success" ] && 
+           [ "${{ needs.cross-platform-tests.result }}" = "success" ]; then
+          echo "✅ All test suites passed successfully" >> test-summary.md
+        else
+          echo "❌ Some test suites failed:" >> test-summary.md
+          echo "- BDD Tests: ${{ needs.bdd-tests.result }}" >> test-summary.md
+          echo "- Security Scan: ${{ needs.security-scan.result }}" >> test-summary.md
+          echo "- Performance Tests: ${{ needs.performance-tests.result }}" >> test-summary.md
+          echo "- Cross-platform Tests: ${{ needs.cross-platform-tests.result }}" >> test-summary.md
+        fi
+        
+        cat test-summary.md
+        
+    - name: Upload combined report
+      uses: actions/upload-artifact@v4
+      with:
+        name: combined-test-summary
+        path: test-summary.md
+        retention-days: 30
