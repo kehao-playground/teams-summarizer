@@ -28,6 +28,39 @@ When('I click {string}', async function(buttonText) {
       await page.waitForTimeout(1000); // Simulate AI processing
       this.setMockData('summaryGenerating', false);
       this.setMockData('summaryComplete', true);
+      
+      // Create mock summary if it doesn't exist
+      if (!this.mockData.generatedSummary) {
+        this.setMockData('generatedSummary', {
+          title: '產品開發週會',
+          date: '2025-01-15',
+          duration: '01:30:00',
+          participants: ['王小明', '李小華', '張經理'],
+          content: {
+            keyDecisions: ['確定Q2產品開發方向', '採用新技術架構'],
+            actionItems: [
+              { task: '準備技術評估報告', assignee: '張經理', deadline: '月底前' },
+              { task: '完成市場調研', assignee: '李小華', deadline: '下週五' }
+            ],
+            discussionTopics: ['新功能規劃', '技術架構討論', '用戶體驗改善'],
+            fullSummary: `本次產品開發週會主要討論了Q2的產品規劃方向。
+
+主要決策：
+- 確定Q2產品開發重點為用戶體驗改善
+- 採用新的微服務技術架構
+
+行動項目：
+- 張經理: 準備技術評估報告 (月底前)
+- 李小華: 完成市場調研 (下週五)
+
+討論主題：
+- 新功能規劃和用戶需求分析
+- 技術架構討論和選型
+- 用戶體驗改善方案`
+          },
+          generatedAt: new Date().toISOString()
+        });
+      }
       break;
       
     case 'Export as Markdown':
@@ -47,19 +80,9 @@ When('I click {string}', async function(buttonText) {
   }
 });
 
-// Common setup steps
-Given('I have the extension installed', async function() {
-  // Mock extension installation check
-  this.extensionId = 'mock-extension-id-for-testing';
-  expect(this.extensionId).to.not.be.null;
-  this.setMockData('extensionInstalled', true);
-});
-
-Given('the extension has necessary permissions', async function() {
-  // Mock permission check
-  this.setMockData('hasPermissions', true);
-  expect(this.mockData.hasPermissions).to.be.true;
-});
+// Note: Removed duplicate step definitions that are already defined in specific step files
+// - "I have the extension installed" is now only in transcript_steps.js
+// - "the extension has necessary permissions" is now only in transcript_steps.js
 
 // Note: Removed duplicate step definitions that are already defined in specific step files
 // - "I should see {string}" is now only in transcript_steps.js 
