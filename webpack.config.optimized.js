@@ -269,11 +269,7 @@ module.exports = {
 
     // Tree shaking and side effects
     usedExports: true,
-    sideEffects: [
-      '*.css',
-      '*.scss',
-      './src/polyfills.js'
-    ],
+    sideEffects: false, // Enable aggressive tree shaking
 
     // Module concatenation for smaller bundles
     concatenateModules: isProduction
