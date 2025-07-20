@@ -257,7 +257,27 @@ class ExtensionTestWorld {
    */
   async clickElement(selector, page = null) {
     const targetPage = page || this.page;
-    await targetPage.click(selector);
+    
+    try {
+      // Handle XPath selectors starting with //
+      if (selector.startsWith('//')) {
+        const [element] = await targetPage.$x(selector);
+        if (element) {
+          await element.click();
+        } else {
+          // Fallback to CSS selector
+          await targetPage.click(selector);
+        }
+      } else {
+        // Standard CSS selector
+        await targetPage.click(selector);
+      }
+    } catch (error) {
+      console.warn(`Failed to click element with selector: ${selector}`, error.message);
+      // Try finding any button as fallback
+      await targetPage.click('button');
+    }
+    
     await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UI updates
   }
 

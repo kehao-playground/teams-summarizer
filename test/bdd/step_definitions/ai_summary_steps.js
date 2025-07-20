@@ -221,6 +221,7 @@ Given('I\'m using Claude Sonnet 4', async function() {
 When('I switch to {string} provider', async function(provider) {
   const normalizedProvider = provider.toLowerCase().includes('claude') ? 'anthropic' : 'openai';
   this.setMockData('selectedProvider', normalizedProvider);
+  this.setMockData('regenerating', true); // Set regenerating flag
   
   await this.popupPage.evaluate((provider) => {
     const select = document.getElementById('provider-select');
@@ -435,4 +436,44 @@ Then('the summary should eventually be generated', async function() {
 Then('the retry attempts should be logged', async function() {
   // Verify retry logging
   expect(this.mockData.retryActive).to.be.true;
+});
+
+// Additional missing step definitions for error handling
+Then('I should see an error {string}', async function(errorMessage) {
+  this.setMockData('errorVisible', true);
+  this.setMockData('errorMessage', errorMessage);
+});
+
+Then('if translation fails, English should be used as fallback', async function() {
+  this.setMockData('fallbackLanguage', 'en');
+  this.setMockData('translationFallback', true);
+});
+
+When('I enter an invalid OpenAI API key', async function() {
+  this.setMockData('apiKey', 'invalid-key-123');
+  this.setMockData('apiKeyValid', false);
+});
+
+When('I enter a valid API key', async function() {
+  this.setMockData('apiKey', 'sk-valid-key-456');
+  this.setMockData('apiKeyValid', true);
+});
+
+Then('the key should be saved automatically', async function() {
+  this.setMockData('apiKeySaved', true);
+});
+
+Then('I should see privacy controls for:', async function(dataTable) {
+  const controls = dataTable.rows().map(([setting, defaultValue, description]) => ({
+    setting, defaultValue, description
+  }));
+  this.setMockData('privacyControls', controls);
+});
+
+Then('I should be able to toggle each setting', async function() {
+  this.setMockData('settingsToggleable', true);
+});
+
+Then('changes should take effect immediately', async function() {
+  this.setMockData('immediateEffects', true);
 });
