@@ -6,7 +6,7 @@
 }
 
 body {
-    width: 450px;
+    width: 480px;
     min-height: 550px;
     max-height: 650px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -248,11 +248,165 @@ textarea {
     padding: 16px;
     max-height: 350px;
     overflow-y: auto;
-    font-family: 'Courier New', monospace;
-    font-size: 13px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+    font-size: 14px;
     line-height: 1.6;
     white-space: pre-wrap;
     word-break: break-word;
+    color: #24292f;
+}
+
+/* GitHub Markdown styles for content */
+.content-box h1,
+.content-box h2,
+.content-box h3,
+.content-box h4,
+.content-box h5,
+.content-box h6 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: #24292f;
+}
+
+.content-box h1 {
+    font-size: 2em;
+    border-bottom: 1px solid #d0d7de;
+    padding-bottom: 0.3em;
+}
+
+.content-box h2 {
+    font-size: 1.5em;
+    border-bottom: 1px solid #d0d7de;
+    padding-bottom: 0.3em;
+}
+
+.content-box h3 {
+    font-size: 1.25em;
+}
+
+.content-box h4 {
+    font-size: 1em;
+}
+
+.content-box h5 {
+    font-size: 0.875em;
+}
+
+.content-box h6 {
+    font-size: 0.85em;
+    color: #656d76;
+}
+
+.content-box p {
+    margin-top: 0;
+    margin-bottom: 16px;
+}
+
+.content-box blockquote {
+    padding: 0 1em;
+    color: #656d76;
+    border-left: 0.25em solid #d0d7de;
+    margin: 0 0 16px 0;
+}
+
+.content-box ul,
+.content-box ol {
+    margin-top: 0;
+    margin-bottom: 16px;
+    padding-left: 2em;
+}
+
+.content-box li {
+    margin-bottom: 0.25em;
+}
+
+.content-box li > p {
+    margin-top: 16px;
+}
+
+.content-box li + li {
+    margin-top: 0.25em;
+}
+
+.content-box code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: rgba(175, 184, 193, 0.2);
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+.content-box pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    margin-bottom: 16px;
+}
+
+.content-box pre code {
+    display: inline;
+    max-width: auto;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: transparent;
+    border: 0;
+}
+
+.content-box strong {
+    font-weight: 600;
+}
+
+.content-box em {
+    font-style: italic;
+}
+
+.content-box a {
+    color: #0969da;
+    text-decoration: none;
+}
+
+.content-box a:hover {
+    text-decoration: underline;
+}
+
+.content-box hr {
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: #d0d7de;
+    border: 0;
+}
+
+.content-box table {
+    border-spacing: 0;
+    border-collapse: collapse;
+    margin-top: 0;
+    margin-bottom: 16px;
+    width: 100%;
+}
+
+.content-box table th,
+.content-box table td {
+    padding: 6px 13px;
+    border: 1px solid #d0d7de;
+}
+
+.content-box table th {
+    font-weight: 600;
+    background-color: #f6f8fa;
+}
+
+.content-box table tr:nth-child(2n) {
+    background-color: #f6f8fa;
 }
 
 /* Tabs */
@@ -310,16 +464,8 @@ textarea {
     display: none !important;
 }
 
-/* Responsive adjustments */
-@media (max-width: 400px) {
-    body {
-        width: 100vw;
-    }
-    
-    .container {
-        padding: 16px;
-    }
-}
+/* Responsive adjustments removed - Chrome extensions don't support viewport units properly */
+/* Extension popups should maintain fixed width */
 
 /* Scrollbar styling */
 .content-box::-webkit-scrollbar {

@@ -367,7 +367,11 @@ async function handleSetupSubmit(event) {
  * Handle extract transcript action
  */
 async function handleExtractTranscript() {
+    console.log('[DEBUG] Extract transcript button clicked');
+    console.log('[DEBUG] Current meeting info:', currentState.meetingInfo);
+    
     if (!currentState.meetingInfo) {
+        console.log('[DEBUG] No meeting information available');
         showToast('No meeting information available', 'error');
         return;
     }
@@ -377,20 +381,32 @@ async function handleExtractTranscript() {
     try {
         // Send message to content script to extract transcript
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-        const response = await chrome.tabs.sendMessage(tabs[0].id, { 
-            action: 'extractTranscript' 
+        console.log('[DEBUG] Current tab:', tabs[0]);
+        console.log('[DEBUG] Tab URL:', tabs[0].url);
+        
+        const response = await chrome.tabs.sendMessage(tabs[0].id, {
+            action: 'extractTranscript'
         });
         
-        if (response.success) {
+        console.log('[DEBUG] Content script response:', response);
+        
+        if (response && response.success) {
             currentState.transcript = response.data.transcript;
             displayTranscriptPreview(response.data.transcript);
             showToast('Transcript extracted successfully!', 'success');
         } else {
-            throw new Error(response.error || 'Failed to extract transcript');
+            const errorMsg = response?.error || 'Failed to extract transcript';
+            console.log('[DEBUG] Extraction failed:', errorMsg);
+            throw new Error(errorMsg);
         }
         
     } catch (error) {
         console.error('[Popup] Error extracting transcript:', error);
+        console.log('[DEBUG] Full error details:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
         showToast(`Failed to extract transcript: ${error.message}`, 'error');
     } finally {
         setLoading(false);

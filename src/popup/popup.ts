@@ -29,9 +29,14 @@ class PopupManager {
   }
 
   async initializePopup() {
-    await this.loadSettings();
-    this.setupEventListeners();
-    this.checkCurrentTab();
+    try {
+      await this.loadSettings();
+      this.setupEventListeners();
+      await this.restoreState();
+      await this.checkCurrentTab();
+    } catch (error) {
+      console.error('[POPUP] Error during initialization:', error);
+    }
   }
 
   async loadSettings() {
@@ -80,6 +85,10 @@ class PopupManager {
     // Main view
     document.getElementById('extract-transcript')?.addEventListener('click', this.extractTranscript.bind(this));
     document.getElementById('generate-summary')?.addEventListener('click', this.generateSummary.bind(this));
+    document.getElementById('download-transcript')?.addEventListener('click', this.downloadTranscript.bind(this));
+    
+    // Settings button - this was missing!
+    document.getElementById('settings-btn')?.addEventListener('click', () => this.showView('settings-view'));
     
     // Settings view
     document.getElementById('save-updated-settings')?.addEventListener('click', this.saveUpdatedSettings.bind(this));
@@ -100,6 +109,7 @@ class PopupManager {
 
     // Settings toggle
     document.getElementById('settings-provider')?.addEventListener('change', this.toggleCustomPrompt.bind(this));
+    document.getElementById('prompt-template')?.addEventListener('change', this.toggleCustomPrompt.bind(this));
   }
 
   async saveSettings() {
@@ -137,20 +147,30 @@ class PopupManager {
   }
 
   async checkCurrentTab() {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.url) return;
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.url) return;
 
-    if (this.isSharePointStreamPage(tab.url)) {
-      const response = await chrome.tabs.sendMessage(tab.id!, { action: 'getMeetingInfo' });
-      if (response?.meetingInfo) {
-        this.meetingInfo = response.meetingInfo;
-        this.updateMeetingInfo();
+      if (this.isSharePointStreamPage(tab.url)) {
+        // Wrap sendMessage in try-catch to handle connection errors
+        try {
+          const response = await chrome.tabs.sendMessage(tab.id!, { action: 'getMeetingInfo' });
+          if (response?.meetingInfo) {
+            this.meetingInfo = response.meetingInfo;
+            this.updateMeetingInfo();
+          }
+        } catch (error) {
+          console.log('[POPUP] Content script not ready or not available:', error);
+          // This is expected if content script hasn't loaded yet
+        }
       }
+    } catch (error) {
+      console.error('[POPUP] Error checking current tab:', error);
     }
   }
 
   isSharePointStreamPage(url: string): boolean {
-    return url.includes('_layouts/15/stream.aspx');
+    return url.includes('_layouts/15/stream.aspx') || url.includes('/stream.aspx');
   }
 
   updateMeetingInfo() {
@@ -158,18 +178,45 @@ class PopupManager {
     
     const titleEl = document.getElementById('meeting-title');
     const durationEl = document.getElementById('meeting-duration');
+    const extractBtn = document.getElementById('extract-transcript') as HTMLButtonElement;
     
     if (titleEl) titleEl.textContent = this.meetingInfo.title || 'Untitled Meeting';
-    if (durationEl) durationEl.textContent = `Duration: ${this.meetingInfo.duration || '--'}`;
+    
+    // Only show duration if it's available
+    if (durationEl) {
+      if (this.meetingInfo.duration && this.meetingInfo.duration !== '--') {
+        durationEl.textContent = `Duration: ${this.meetingInfo.duration}`;
+        durationEl.style.display = 'block';
+      } else {
+        // Hide duration element if no duration is available
+        durationEl.style.display = 'none';
+      }
+    }
+    
+    // Enable the extract transcript button when meeting info is available
+    if (extractBtn) {
+      extractBtn.disabled = false;
+    }
   }
 
   async extractTranscript() {
-    if (!this.meetingInfo) return;
+    if (!this.meetingInfo) {
+      return;
+    }
 
     this.showLoading('Extracting transcript...');
     
     try {
-      const response = await chrome.runtime.sendMessage({
+      // Get current active tab
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (!tab?.id) {
+        this.showError('No active tab found');
+        return;
+      }
+      
+      // Send message to content script, not background script
+      const response = await chrome.tabs.sendMessage(tab.id, {
         action: 'extractTranscript',
         meetingInfo: this.meetingInfo
       });
@@ -179,41 +226,168 @@ class PopupManager {
       } else {
         this.transcript = response.transcript;
         this.showTranscriptPreview();
+        
+        // Save state after successful transcript extraction
+        await this.saveState();
       }
     } catch (error) {
       this.showError('Failed to extract transcript: ' + (error as Error).message);
     } finally {
       this.hideLoading();
+      
+      // Re-enable the generate summary button
+      const generateBtn = document.getElementById('generate-summary') as HTMLButtonElement;
+      if (generateBtn) {
+        generateBtn.disabled = false;
+        generateBtn.textContent = '✨ 產生摘要';
+      }
     }
   }
 
   async generateSummary() {
     if (!this.transcript) return;
 
-    this.showLoading('Generating summary...');
+    console.log('[SUMMARY DEBUG] Starting summary generation...');
+    console.log('[SUMMARY DEBUG] Transcript available:', this.transcript);
+
+    // Show loading with specific message for summary generation
+    this.showLoading('正在產生摘要，請稍候...');
+    
+    // Disable the generate summary button to prevent multiple clicks
+    const generateBtn = document.getElementById('generate-summary') as HTMLButtonElement;
+    if (generateBtn) {
+      generateBtn.disabled = true;
+      generateBtn.textContent = '⏳ 產生中...';
+    }
     
     try {
       const settings = await chrome.storage.local.get([
         'provider', 'apiKey', 'language', 'promptTemplate', 'customPrompt'
       ]);
 
-      const response = await chrome.runtime.sendMessage({
-        action: 'generateSummary',
-        transcript: this.transcript,
-        settings
+      console.log('[SUMMARY DEBUG] Settings loaded:', {
+        provider: settings.provider,
+        hasApiKey: !!settings.apiKey,
+        language: settings.language,
+        promptTemplate: settings.promptTemplate,
+        hasCustomPrompt: !!settings.customPrompt
       });
 
-      if (response.error) {
-        this.showError(response.error);
-      } else {
-        this.summary = response.summary;
+      // Check if we have runtime available
+      if (!chrome.runtime || !chrome.runtime.sendMessage) {
+        throw new Error('Chrome runtime not available');
+      }
+
+      // First, ping the background script to ensure it's alive
+      console.log('[SUMMARY DEBUG] Pinging background script...');
+      try {
+        await this.pingBackgroundScript();
+        console.log('[SUMMARY DEBUG] Background script is responsive');
+      } catch (pingError) {
+        console.error('[SUMMARY DEBUG] Background script not responding to ping:', pingError);
+        throw new Error('Background service is not responding. Please reload the extension.');
+      }
+
+      console.log('[SUMMARY DEBUG] Sending generateSummary message to background...');
+      
+      // Use Promise with timeout to handle port closing issues
+      const response = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Request timeout - background script may not be responding'));
+        }, 60000); // 60 second timeout for AI calls
+
+        try {
+          chrome.runtime.sendMessage({
+            action: 'generateSummary',
+            transcript: this.transcript,
+            settings
+          }, (response) => {
+            clearTimeout(timeout);
+            
+            if (chrome.runtime.lastError) {
+              console.error('[SUMMARY DEBUG] Chrome runtime error:', chrome.runtime.lastError);
+              // Check for specific error messages
+              if (chrome.runtime.lastError.message?.includes('message port closed')) {
+                reject(new Error('Connection lost. Please try again.'));
+              } else if (chrome.runtime.lastError.message?.includes('Receiving end does not exist')) {
+                reject(new Error('Background service not available. Please reload the extension.'));
+              } else {
+                reject(new Error(chrome.runtime.lastError.message));
+              }
+            } else if (!response) {
+              reject(new Error('No response from background script'));
+            } else {
+              resolve(response);
+            }
+          });
+        } catch (sendError) {
+          clearTimeout(timeout);
+          console.error('[SUMMARY DEBUG] Error sending message:', sendError);
+          reject(sendError);
+        }
+      });
+
+      console.log('[SUMMARY DEBUG] Response received:', response);
+
+      if (response && (response as any).error) {
+        console.log('[SUMMARY DEBUG] Error in response:', (response as any).error);
+        this.showError((response as any).error);
+      } else if (response && (response as any).summary) {
+        console.log('[SUMMARY DEBUG] Summary received successfully');
+        this.summary = (response as any).summary;
         this.showSummary();
+        
+        // Save state after successful summary generation
+        await this.saveState();
+      } else {
+        console.log('[SUMMARY DEBUG] No valid response received:', response);
+        this.showError('Invalid response from summary generation');
       }
     } catch (error) {
-      this.showError('Failed to generate summary: ' + (error as Error).message);
+      console.error('[SUMMARY DEBUG] Exception caught:', error);
+      console.error('[SUMMARY DEBUG] Error stack:', (error as Error).stack);
+      
+      // Provide more user-friendly error messages
+      let errorMessage = 'Failed to generate summary: ';
+      if ((error as Error).message.includes('Connection lost')) {
+        errorMessage += 'Connection to background service lost. Please close and reopen the extension.';
+      } else if ((error as Error).message.includes('timeout')) {
+        errorMessage += 'Request timed out. The AI service may be slow or unavailable.';
+      } else if ((error as Error).message.includes('not responding')) {
+        errorMessage += (error as Error).message;
+      } else {
+        errorMessage += (error as Error).message;
+      }
+      
+      this.showError(errorMessage);
     } finally {
       this.hideLoading();
+      
+      // Reset the generate summary button text and state
+      const generateBtn = document.getElementById('generate-summary') as HTMLButtonElement;
+      if (generateBtn) {
+        generateBtn.disabled = false;
+        generateBtn.textContent = '✨ 產生摘要';
+      }
     }
+  }
+
+  // Helper method to ping background script
+  async pingBackgroundScript(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Background script ping timeout'));
+      }, 5000);
+
+      chrome.runtime.sendMessage({ action: 'ping' }, () => {
+        clearTimeout(timeout);
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+        } else {
+          resolve();
+        }
+      });
+    });
   }
 
   showTranscriptPreview() {
@@ -222,14 +396,53 @@ class PopupManager {
     const generateBtn = document.getElementById('generate-summary');
     
     if (preview && content && this.transcript) {
-      const entries = this.transcript.entries || [];
-      const previewText = entries.slice(0, 5).map((entry: any) => 
-        `[${entry.startOffset}] ${entry.speakerDisplayName}: ${entry.text}`
-      ).join('\n');
+      // Update duration if available from transcript metadata
+      const duration = this.transcript.duration || this.transcript.metadata?.duration;
+      if (duration) {
+        const durationEl = document.getElementById('meeting-duration');
+        if (durationEl) {
+          durationEl.textContent = `Duration: ${duration}`;
+          durationEl.style.display = 'block';
+        }
+        
+        // Also update meetingInfo with duration
+        if (this.meetingInfo) {
+          this.meetingInfo.duration = duration;
+        }
+      }
       
-      content.textContent = previewText + (entries.length > 5 ? '\n...' : '');
+      const entries = this.transcript.entries || [];
+      let previewText = '';
+      
+      if (entries.length > 0) {
+        // Handle different entry formats
+        previewText = entries.slice(0, 5).map((entry: any) => {
+          const time = entry.startTime || entry.startOffset || '00:00';
+          const speaker = entry.speaker || entry.speakerDisplayName || 'Unknown Speaker';
+          const text = entry.text || '';
+          return `[${time}] ${speaker}: ${text}`;
+        }).join('\n\n');
+        
+        if (entries.length > 5) {
+          previewText += `\n\n... (${entries.length - 5} more entries)`;
+        }
+      } else if (this.transcript.rawText) {
+        // If no entries but we have raw text, show that
+        previewText = this.transcript.rawText.substring(0, 500);
+        if (this.transcript.rawText.length > 500) {
+          previewText += '...';
+        }
+      } else {
+        previewText = 'No transcript content available';
+      }
+      
+      content.textContent = previewText;
       preview.style.display = 'block';
-      generateBtn!.style.display = 'block';
+      
+      // Only show generate button if we have actual content
+      if (entries.length > 0 || this.transcript.rawText) {
+        generateBtn!.style.display = 'block';
+      }
     }
   }
 
@@ -238,7 +451,31 @@ class PopupManager {
     const content = document.getElementById('summary-content');
     
     if (summaryView && content && this.summary) {
-      content.textContent = this.summary.markdown || this.summary.fullSummary;
+      // Use innerHTML to render markdown as HTML for better formatting
+      const markdownContent = this.summary.markdown || this.summary.fullSummary || '';
+      
+      // Simple markdown to HTML conversion for basic formatting
+      let htmlContent = markdownContent
+        .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+        .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+        .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+        .replace(/^\* (.*$)/gim, '<li>$1</li>')
+        .replace(/^\- (.*$)/gim, '<li>$1</li>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/`(.*?)`/g, '<code>$1</code>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+      
+      // Wrap list items in ul tags
+      htmlContent = htmlContent.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+      
+      // Wrap content in paragraphs if not already wrapped
+      if (!htmlContent.startsWith('<h') && !htmlContent.startsWith('<ul')) {
+        htmlContent = '<p>' + htmlContent + '</p>';
+      }
+      
+      content.innerHTML = htmlContent;
       summaryView.style.display = 'block';
     }
   }
@@ -287,9 +524,9 @@ class PopupManager {
   }
 
   toggleCustomPrompt() {
-    const template = (document.getElementById('prompt-template') as HTMLSelectElement).value;
+    const template = (document.getElementById('prompt-template') as HTMLSelectElement)?.value;
     const section = document.getElementById('custom-prompt-section');
-    if (section) {
+    if (section && template) {
       section.style.display = template === 'custom' ? 'block' : 'none';
     }
   }
@@ -327,9 +564,121 @@ class PopupManager {
     // Simple message display - could be enhanced with toast notifications
     this.showError(message);
   }
+
+  // State persistence methods
+  async saveState() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.url) return;
+
+      const stateKey = `popup_state_${tab.url}`;
+      const state = {
+        meetingInfo: this.meetingInfo,
+        transcript: this.transcript,
+        summary: this.summary,
+        timestamp: Date.now()
+      };
+
+      await chrome.storage.local.set({ [stateKey]: state });
+    } catch (error) {
+      console.error('[POPUP] Error saving state:', error);
+    }
+  }
+
+  async restoreState() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.url) return;
+
+      const stateKey = `popup_state_${tab.url}`;
+      const result = await chrome.storage.local.get([stateKey]);
+      const state = result[stateKey];
+
+      if (state && state.timestamp) {
+        // Only restore state if it's less than 1 hour old
+        const oneHour = 60 * 60 * 1000;
+        if (Date.now() - state.timestamp < oneHour) {
+          this.meetingInfo = state.meetingInfo;
+          this.transcript = state.transcript;
+          this.summary = state.summary;
+
+          // Restore UI state
+          if (this.meetingInfo) {
+            this.updateMeetingInfo();
+          }
+          if (this.transcript) {
+            this.showTranscriptPreview();
+          }
+          if (this.summary) {
+            this.showSummary();
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[POPUP] Error restoring state:', error);
+    }
+  }
+
+  // Download transcript functionality
+  downloadTranscript() {
+    if (!this.transcript) return;
+
+    let content = '';
+    const entries = this.transcript.entries || [];
+    
+    if (entries.length > 0) {
+      // Format as readable transcript
+      content = `# ${this.meetingInfo?.title || '會議逐字稿'}\n\n`;
+      content += `**時間**: ${new Date().toLocaleString('zh-TW')}\n`;
+      if (this.transcript.metadata?.duration) {
+        content += `**時長**: ${this.transcript.metadata.duration}\n`;
+      }
+      if (this.transcript.metadata?.participants?.length > 0) {
+        content += `**參與者**: ${this.transcript.metadata.participants.join(', ')}\n`;
+      }
+      content += '\n---\n\n';
+
+      entries.forEach((entry: any) => {
+        const time = entry.startTime || entry.startOffset || '00:00';
+        const speaker = entry.speaker || entry.speakerDisplayName || 'Unknown Speaker';
+        const text = entry.text || '';
+        content += `**[${time}] ${speaker}**: ${text}\n\n`;
+      });
+    } else if (this.transcript.rawText) {
+      content = this.transcript.rawText;
+    } else {
+      content = '無法取得逐字稿內容';
+    }
+
+    const blob = new Blob([content], { type: 'text/markdown; charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this.meetingInfo?.title || 'meeting'}_transcript.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 }
 
 // Initialize popup when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-  new PopupManager();
+  try {
+    new PopupManager();
+  } catch (error) {
+    console.error('[POPUP] Failed to initialize PopupManager:', error);
+  }
+});
+
+// Global error handler to catch unhandled promise rejections
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('[POPUP] Unhandled promise rejection:', event.reason);
+  // Prevent the default behavior (which would pause in debugger)
+  event.preventDefault();
+});
+
+// Global error handler for regular errors
+window.addEventListener('error', (event) => {
+  console.error('[POPUP] Global error:', event.error);
+  // Prevent the default behavior
+  event.preventDefault();
 });

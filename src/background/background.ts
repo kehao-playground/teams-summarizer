@@ -3,16 +3,13 @@
 // Production-safe logging helper
 const backgroundLog = {
   info: (message: string, ...args: any[]) => {
-    // Logging disabled in production for performance and compliance
-    void message; void args;
+    console.log('[BACKGROUND]', message, ...args);
   },
   error: (message: string, ...args: any[]) => {
-    // Error logging disabled in production for security
-    void message; void args;
+    console.error('[BACKGROUND]', message, ...args);
   },
   warn: (message: string, ...args: any[]) => {
-    // Warning logging disabled in production
-    void message; void args;
+    console.warn('[BACKGROUND]', message, ...args);
   }
 };
 
@@ -42,6 +39,8 @@ class BackgroundService {
   }
 
   initialize() {
+    backgroundLog.info('Background service initializing...');
+    
     // Setup message listeners
     chrome.runtime.onMessage.addListener(this.handleMessage.bind(this));
     
@@ -50,6 +49,8 @@ class BackgroundService {
     
     // Clean up old session data periodically
     this.startSessionCleanup();
+    
+    backgroundLog.info('Background service initialized');
   }
 
   setupWebRequestListeners() {
@@ -93,20 +94,51 @@ class BackgroundService {
     }
   }
 
-  async handleMessage(request: any, _sender: any, sendResponse: any) {
-    switch (request.action) {
-      case 'extractTranscript':
-        await this.extractTranscript(request.meetingInfo, sendResponse);
-        break;
-      case 'generateSummary':
-        await this.generateSummary(request.transcript, request.settings, sendResponse);
-        break;
-      case 'getSessionData':
-        sendResponse({ sessionData: this.sessionData });
-        break;
-      default:
-        sendResponse({ error: 'Unknown action' });
-    }
+  handleMessage(request: any, _sender: any, sendResponse: any) {
+    backgroundLog.info('Received message:', request.action);
+    
+    // Create a flag to track if response was sent
+    let responseSent = false;
+    
+    // Wrapper to ensure response is only sent once
+    const safeResponse = (data: any) => {
+      if (!responseSent) {
+        responseSent = true;
+        try {
+          sendResponse(data);
+        } catch (error) {
+          backgroundLog.error('Error sending response:', error);
+        }
+      }
+    };
+    
+    // Handle async operations properly to prevent port closing
+    (async () => {
+      try {
+        switch (request.action) {
+          case 'ping':
+            // Simple ping response to check if background is alive
+            safeResponse({ pong: true });
+            break;
+          case 'extractTranscript':
+            await this.extractTranscript(request.meetingInfo, safeResponse);
+            break;
+          case 'generateSummary':
+            backgroundLog.info('Processing generateSummary request');
+            await this.generateSummary(request.transcript, request.settings, safeResponse);
+            break;
+          case 'getSessionData':
+            safeResponse({ sessionData: this.sessionData });
+            break;
+          default:
+            safeResponse({ error: 'Unknown action' });
+        }
+      } catch (error) {
+        backgroundLog.error('Error in handleMessage:', error);
+        safeResponse({ error: this.getErrorMessage(error) });
+      }
+    })();
+    
     return true; // Keep message channel open for async response
   }
 
@@ -181,6 +213,21 @@ class BackgroundService {
   }
 
   async generateSummary(transcript: any, settings: any, sendResponse: any) {
+    backgroundLog.info('generateSummary called with settings:', {
+      provider: settings.provider,
+      hasApiKey: !!settings.apiKey,
+      apiKeyLength: settings.apiKey?.length,
+      language: settings.language,
+      promptTemplate: settings.promptTemplate
+    });
+
+    // Validate settings
+    if (!settings.apiKey) {
+      backgroundLog.error('No API key provided');
+      sendResponse({ error: 'API key not configured. Please check your settings.' });
+      return;
+    }
+
     if (this.isProcessing) {
       sendResponse({ error: 'Already processing a request' });
       return;
@@ -189,13 +236,21 @@ class BackgroundService {
     this.isProcessing = true;
 
     try {
+      backgroundLog.info('Formatting transcript for AI...');
       const formattedTranscript = this.formatTranscriptForAI(transcript);
+      backgroundLog.info('Formatted transcript metadata:', formattedTranscript.metadata);
+      
+      backgroundLog.info('Calling AI provider...');
       const summary = await this.callAIProvider(formattedTranscript, settings);
+      
+      backgroundLog.info('Summary generated successfully');
       sendResponse({ summary });
 
     } catch (error) {
       backgroundLog.error('Error generating summary:', error);
-      sendResponse({ error: this.getErrorMessage(error) });
+      const errorMessage = this.getErrorMessage(error);
+      backgroundLog.error('Sending error response:', errorMessage);
+      sendResponse({ error: errorMessage });
     } finally {
       this.isProcessing = false;
     }
@@ -258,16 +313,21 @@ class BackgroundService {
   async callAIProvider(formattedTranscript: any, settings: any) {
     const { provider, apiKey, language, promptTemplate, customPrompt } = settings;
     
+    backgroundLog.info('callAIProvider - provider:', provider);
+    
     if (!apiKey) {
       throw new Error('API key not configured');
     }
 
     const prompt = customPrompt || this.getDefaultPrompt(promptTemplate, language);
+    backgroundLog.info('Using prompt template:', promptTemplate);
     
     switch (provider) {
       case 'openai':
+        backgroundLog.info('Calling OpenAI API...');
         return await this.callOpenAI(apiKey, prompt, formattedTranscript, language);
       case 'anthropic':
+        backgroundLog.info('Calling Anthropic API...');
         return await this.callAnthropic(apiKey, prompt, formattedTranscript, language);
       default:
         throw new Error(`Unsupported AI provider: ${provider}`);
@@ -275,6 +335,8 @@ class BackgroundService {
   }
 
   async callOpenAI(apiKey: string, prompt: string, transcript: any, language: string) {
+    backgroundLog.info('[OpenAI] Starting API call...');
+    
     const messages = [
       {
         role: 'system',
@@ -286,29 +348,93 @@ class BackgroundService {
       }
     ];
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1',
-        messages,
-        temperature: 0.3,
-        max_tokens: 32768
-      })
+    const requestBody = {
+      model: 'gpt-4.1',  // Use gpt-4.1 which should have larger context window
+      messages,
+      temperature: 0.3,
+      max_tokens: 4096
+    };
+
+    backgroundLog.info('[OpenAI] Request configuration:', {
+      model: requestBody.model,
+      temperature: requestBody.temperature,
+      messageCount: messages.length,
+      transcriptLength: transcript.content.length,
+      apiKeyPrefix: apiKey.substring(0, 8) + '...'
     });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API Error: ${response.status}`);
-    }
+    try {
+      backgroundLog.info('[OpenAI] Sending request to API...');
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
 
-    const data = await response.json();
-    return this.formatSummary(data.choices[0]?.message?.content || '');
+      backgroundLog.info('[OpenAI] Response received - Status:', response.status);
+      backgroundLog.info('[OpenAI] Response headers:', {
+        contentType: response.headers.get('content-type'),
+        rateLimitRemaining: response.headers.get('x-ratelimit-remaining'),
+        rateLimitReset: response.headers.get('x-ratelimit-reset')
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        backgroundLog.error('[OpenAI] API error response:', errorText);
+        
+        // Parse error for better messaging
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.error?.message) {
+            throw new Error(`OpenAI API Error: ${errorData.error.message}`);
+          }
+        } catch (e) {
+          // If parsing fails, use raw error
+        }
+        
+        throw new Error(`OpenAI API Error: ${response.status} - ${errorText}`);
+      }
+
+      backgroundLog.info('[OpenAI] Parsing response JSON...');
+      const data = await response.json();
+      
+      backgroundLog.info('[OpenAI] Response data received:', {
+        hasChoices: !!data.choices,
+        choicesCount: data.choices?.length,
+        hasContent: !!data.choices?.[0]?.message?.content,
+        contentLength: data.choices?.[0]?.message?.content?.length,
+        usage: data.usage
+      });
+      
+      if (!data.choices?.[0]?.message?.content) {
+        throw new Error('OpenAI returned empty response');
+      }
+      
+      backgroundLog.info('[OpenAI] Formatting summary...');
+      return this.formatSummary(data.choices[0].message.content);
+      
+    } catch (error) {
+      backgroundLog.error('[OpenAI] Error during API call:', error);
+      throw error;
+    }
   }
 
   async callAnthropic(apiKey: string, prompt: string, transcript: any, language: string) {
+    const requestBody = {
+      model: 'claude-3-sonnet-20240229',  // Fixed model name
+      max_tokens: 4096,
+      temperature: 0.3,
+      messages: [{
+        role: 'user',
+        content: `${prompt}\nOutput language: ${language}\n\nMeeting transcript:\n${transcript.content}\n\nParticipants: ${transcript.metadata.participants.join(', ')}`
+      }]
+    };
+
+    backgroundLog.info('Anthropic request body:', { model: requestBody.model, temperature: requestBody.temperature });
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -316,22 +442,19 @@ class BackgroundService {
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json'
       },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-0',
-        max_tokens: 8192,
-        temperature: 0.3,
-        messages: [{
-          role: 'user',
-          content: `${prompt}\nOutput language: ${language}\n\nMeeting transcript:\n${transcript.content}\n\nParticipants: ${transcript.metadata.participants.join(', ')}`
-        }]
-      })
+      body: JSON.stringify(requestBody)
     });
 
+    backgroundLog.info('Anthropic response status:', response.status);
+
     if (!response.ok) {
-      throw new Error(`Anthropic API Error: ${response.status}`);
+      const errorText = await response.text();
+      backgroundLog.error('Anthropic API error response:', errorText);
+      throw new Error(`Anthropic API Error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    backgroundLog.info('Anthropic response received, formatting summary...');
     return this.formatSummary(data.content[0]?.text || '');
   }
 
@@ -445,9 +568,14 @@ ${sections.decisions.map((d: string) => d).join('\n')}
 
 // Initialize background service
 
+// Create a global instance
+let backgroundService: BackgroundService | null = null;
+
 function initializeBackground() {
   try {
-    new BackgroundService();
+    backgroundLog.info('Initializing background service...');
+    backgroundService = new BackgroundService();
+    backgroundLog.info('Background service created successfully');
   } catch (error) {
     backgroundLog.error('Failed to initialize background service:', error);
   }
@@ -455,6 +583,7 @@ function initializeBackground() {
 
 // Handle extension installation
 chrome.runtime.onInstalled.addListener((details) => {
+  backgroundLog.info('Extension installed/updated:', details.reason);
   if (details.reason === 'install') {
     backgroundLog.info('Teams Meeting Summarizer installed');
   }
@@ -462,3 +591,6 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 // Initialize on startup
 initializeBackground();
+
+// Log when service worker starts
+backgroundLog.info('Background service worker loaded');

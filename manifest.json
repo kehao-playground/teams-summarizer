@@ -30,13 +30,15 @@
     {
       "matches": [
         "https://*.sharepoint.com/*/stream.aspx*",
+        "https://*.sharepoint.com/*/_layouts/15/stream.aspx*",
         "https://teams.microsoft.com/*"
       ],
-      "js": ["src/storage/storageManager.js", "src/api/streamApiClient.js", "src/content/content.js"]
+      "js": ["storage/storageManager.js", "api/streamApiClient.js", "content.js"],
+      "run_at": "document_end"
     }
   ],
   "background": {
-    "service_worker": "src/background/background.js"
+    "service_worker": "background.js"
   },
   "icons": {
     "16": "assets/icon16.png",
@@ -46,7 +48,16 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["popup.html", "assets/*"],
+      "resources": [
+        "popup.html", 
+        "assets/*", 
+        "storage/*", 
+        "api/*", 
+        "export/*", 
+        "prompt/*", 
+        "ui/*", 
+        "utils/*"
+      ],
       "matches": ["https://*.sharepoint.com/*", "https://teams.microsoft.com/*"]
     }
   ]

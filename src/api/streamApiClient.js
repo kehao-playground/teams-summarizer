@@ -44,7 +44,7 @@ class StreamApiClient {
 
         try {
             const transcript = await this.fetchWithRetry(apiUrl);
-            return this.parseTranscriptResponse(transcript, meetingInfo);
+            return await this.parseTranscriptResponse(transcript, meetingInfo);
         } catch (error) {
             console.error('[StreamApiClient] Failed to fetch transcript:', error);
             throw this.createDetailedError(error);
@@ -60,60 +60,113 @@ class StreamApiClient {
      * @returns {string} Complete API URL
      */
     buildApiUrl(siteUrl, driveId, itemId, transcriptId) {
-        // Clean site URL
+        // Extract personal site path from the current URL
+        const currentUrl = window.location.href;
+        const personalMatch = currentUrl.match(/\/personal\/([^\/]+)\//);
+        const personalPath = personalMatch ? `/personal/${personalMatch[1]}` : '';
+        
+        // Clean site URL and add personal path
         const cleanSiteUrl = siteUrl.replace(/\/$/, '');
+        const baseUrl = `${cleanSiteUrl}${personalPath}`;
         
         let apiPath;
         if (transcriptId) {
-            // Direct transcript access
+            // Direct transcript access with proper query parameters
             apiPath = `/_api/v2.1/drives/${driveId}/items/${itemId}/media/transcripts/${transcriptId}/streamContent`;
+            return `${baseUrl}${apiPath}?applyhighlights=false&applymediaedits=false`;
         } else {
             // List all transcripts for the item
             apiPath = `/_api/v2.1/drives/${driveId}/items/${itemId}/media/transcripts`;
+            return `${baseUrl}${apiPath}`;
         }
-
-        return `${cleanSiteUrl}${apiPath}?format=json`;
     }
 
     /**
-     * Get authentication headers from background script
+     * Get authentication headers - extracts Bearer token from page
      * @returns {Promise<Object>} Authentication headers
      */
     async getAuthHeaders() {
-        return new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage(
-                { action: 'getSessionStatus' },
-                (response) => {
-                    if (chrome.runtime.lastError) {
-                        reject(new Error(`Failed to get auth headers: ${chrome.runtime.lastError.message}`));
-                        return;
-                    }
+        console.log('[StreamApiClient] Extracting authentication from page');
+        
+        const headers = {};
+        
+        // Try to extract Bearer token from page
+        const bearerToken = await this.extractBearerToken();
+        if (bearerToken) {
+            headers['Authorization'] = `Bearer ${bearerToken}`;
+            console.log('[StreamApiClient] Bearer token extracted successfully');
+        } else {
+            console.warn('[StreamApiClient] No Bearer token found, will rely on cookies');
+        }
+        
+        // Get the request digest from the page if available
+        let requestDigest = null;
+        try {
+            // Try to get the request digest from SharePoint page context
+            if (window.__REQUESTDIGEST) {
+                requestDigest = window.__REQUESTDIGEST;
+            } else if (document.getElementById('__REQUESTDIGEST')) {
+                requestDigest = document.getElementById('__REQUESTDIGEST').value;
+            }
+        } catch (e) {
+            console.warn('[StreamApiClient] Could not get request digest:', e);
+        }
+        
+        // Add request digest if available
+        if (requestDigest) {
+            headers['X-RequestDigest'] = requestDigest;
+        }
+        
+        return headers;
+    }
 
-                    if (!response.success || !response.data.isValid) {
-                        reject(new Error('No valid authentication session available'));
-                        return;
-                    }
-
-                    // Get headers from background script
-                    chrome.runtime.sendMessage(
-                        { action: 'getAuthHeaders' },
-                        (headerResponse) => {
-                            if (chrome.runtime.lastError) {
-                                reject(new Error(`Failed to get headers: ${chrome.runtime.lastError.message}`));
-                                return;
-                            }
-
-                            if (!headerResponse.success) {
-                                reject(new Error(headerResponse.error || 'Failed to get authentication headers'));
-                                return;
-                            }
-
-                            resolve(headerResponse.data);
-                        }
-                    );
+    /**
+     * Extract Bearer token from the page
+     * @returns {Promise<string|null>} Bearer token or null
+     */
+    async extractBearerToken() {
+        try {
+            // Method 1: Check for token in window object
+            if (window._spPageContextInfo && window._spPageContextInfo.formDigestValue) {
+                const token = window._spPageContextInfo.formDigestValue;
+                if (token && token.startsWith('v1.')) {
+                    return token;
                 }
-            );
-        });
+            }
+
+            // Method 2: Look for token in script tags
+            const scripts = document.querySelectorAll('script');
+            for (const script of scripts) {
+                const content = script.textContent || '';
+                // Look for Bearer token pattern
+                const tokenMatch = content.match(/Bearer\s+(v1\.[A-Za-z0-9\-._~+\/]+=*)/);
+                if (tokenMatch) {
+                    return tokenMatch[1];
+                }
+                // Look for authorization token pattern
+                const authMatch = content.match(/"authorization":\s*"Bearer\s+(v1\.[^"]+)"/);
+                if (authMatch) {
+                    return authMatch[1];
+                }
+            }
+
+            // Method 3: Check localStorage/sessionStorage
+            const storageKeys = ['ms-stream-auth', 'stream-auth-token', 'bearer-token'];
+            for (const key of storageKeys) {
+                const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+                if (token && token.startsWith('v1.')) {
+                    return token;
+                }
+            }
+
+            // Method 4: Try to intercept from network requests
+            // This would require more complex implementation
+            
+            return null;
+        } catch (error) {
+            console.error('[StreamApiClient] Error extracting Bearer token:', error);
+            return null;
+        }
     }
 
     /**
@@ -173,12 +226,23 @@ class StreamApiClient {
                 method: 'GET',
                 headers: {
                     ...this.authHeaders,
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
+                    'Accept': '*/*',
+                    'Accept-Language': 'en,zh-TW;q=0.9,zh;q=0.8,en-US;q=0.7',
                     'Application': 'OnePlayer',
                     'Scenario': 'LoadPlayer',
-                    'Type': 'AUO'
+                    'Type': 'AUO',
+                    'Priority': 'u=1, i',
+                    'Sec-Ch-Ua': '"Not)A;Brand";v="8", "Chromium";v="138", "Microsoft Edge";v="138"',
+                    'Sec-Ch-Ua-Mobile': '?0',
+                    'Sec-Ch-Ua-Platform': '"macOS"',
+                    'Sec-Fetch-Dest': 'empty',
+                    'Sec-Fetch-Mode': 'cors',
+                    'Sec-Fetch-Site': 'same-origin',
+                    'X-Ms-Client-Request-Id': this.generateUUID(),
+                    'X-Requeststats': `psi:${this.generateUUID()}`
                 },
+                credentials: 'include', // Include all cookies
+                mode: 'cors',
                 signal: controller.signal
             });
 
@@ -269,28 +333,104 @@ class StreamApiClient {
      * Parse and validate transcript response
      * @param {Object} transcriptData - Raw API response
      * @param {Object} meetingInfo - Original meeting metadata
-     * @returns {Object} Parsed transcript object
+     * @returns {Promise<Object>} Parsed transcript object
      */
-    parseTranscriptResponse(transcriptData, meetingInfo) {
+    async parseTranscriptResponse(transcriptData, meetingInfo) {
         if (!transcriptData) {
             throw new Error('Empty transcript response received');
         }
 
+        console.log('[StreamApiClient] Raw transcript response:', transcriptData);
+        console.log('[StreamApiClient] Response type:', typeof transcriptData);
+        console.log('[StreamApiClient] Response keys:', Object.keys(transcriptData));
+
         // Handle different response formats
         let transcript = transcriptData;
         
-        // If response contains a value property (OData format)
-        if (transcriptData.value) {
-            if (Array.isArray(transcriptData.value) && transcriptData.value.length > 0) {
-                transcript = transcriptData.value[0];
+        // If response contains a value property (OData format) - this is transcript metadata
+        if (transcriptData.value && Array.isArray(transcriptData.value)) {
+            console.log('[StreamApiClient] Found transcript metadata array');
+            if (transcriptData.value.length > 0) {
+                const transcriptMeta = transcriptData.value[0];
+                console.log('[StreamApiClient] Transcript metadata:', transcriptMeta);
+                
+                // Check if we have a temporaryDownloadUrl
+                if (transcriptMeta.temporaryDownloadUrl) {
+                    console.log('[StreamApiClient] Found temporaryDownloadUrl, fetching actual transcript content');
+                    
+                    // Add format=json parameter to the URL
+                    const contentUrl = new URL(transcriptMeta.temporaryDownloadUrl);
+                    contentUrl.searchParams.set('format', 'json');
+                    contentUrl.searchParams.set('applyhighlights', 'false');
+                    contentUrl.searchParams.set('applymediaedits', 'false');
+                    
+                    console.log('[StreamApiClient] Fetching transcript content from:', contentUrl.toString());
+                    
+                    try {
+                        // Fetch the actual transcript content
+                        const contentResponse = await this.makeApiRequest(contentUrl.toString());
+                        console.log('[StreamApiClient] Transcript content response:', contentResponse);
+                        
+                        // The content response should contain the actual transcript
+                        transcript = contentResponse;
+                    } catch (error) {
+                        console.error('[StreamApiClient] Failed to fetch transcript content:', error);
+                        throw new Error('Failed to fetch transcript content from download URL');
+                    }
+                } else {
+                    throw new Error('No download URL found in transcript metadata');
+                }
+            } else if (typeof transcriptData.value === 'string') {
+                // The transcript might be returned as a string (WebVTT or plain text)
+                console.log('[StreamApiClient] Value is a string, creating simple transcript structure');
+                return this.createSimpleTranscript(transcriptData.value, meetingInfo);
             } else {
                 throw new Error('No transcript data found in response');
             }
         }
 
-        // Validate transcript structure
+        // Check if the response is a string (WebVTT or plain text)
+        if (typeof transcript === 'string') {
+            console.log('[StreamApiClient] Transcript is a string, creating simple structure');
+            return this.createSimpleTranscript(transcript, meetingInfo);
+        }
+
+        // Check for alternative transcript formats
+        if (transcript.content || transcript.text || transcript.captions || transcript.webvtt) {
+            const textContent = transcript.content || transcript.text || transcript.captions || transcript.webvtt;
+            console.log('[StreamApiClient] Found text content in alternative format');
+            return this.createSimpleTranscript(textContent, meetingInfo);
+        }
+
+        // Validate transcript structure - but be more flexible
         if (!transcript.entries || !Array.isArray(transcript.entries)) {
-            throw new Error('Invalid transcript format: missing entries array');
+            console.warn('[StreamApiClient] No entries array found, checking for other properties');
+            
+            // Log all properties to understand the structure
+            console.log('[StreamApiClient] Transcript properties:', Object.keys(transcript));
+            
+            // If we can't find a standard format, create a simple transcript with raw data
+            return {
+                raw: transcriptData,
+                meetingInfo: {
+                    title: meetingInfo.title || 'Untitled Meeting',
+                    url: meetingInfo.url,
+                    siteUrl: meetingInfo.siteUrl,
+                    extractedAt: new Date().toISOString()
+                },
+                metadata: {
+                    version: '1.0',
+                    type: 'RawTranscript',
+                    participants: [],
+                    duration: '00:00:00',
+                    language: 'unknown',
+                    entryCount: 0,
+                    hasEvents: false
+                },
+                entries: [],
+                events: [],
+                rawData: transcript
+            };
         }
 
         if (transcript.entries.length === 0) {
@@ -356,6 +496,90 @@ class StreamApiClient {
         });
 
         return formattedTranscript;
+    }
+
+    /**
+     * Create a simple transcript structure from text content
+     * @param {string} textContent - Raw text content (WebVTT or plain text)
+     * @param {Object} meetingInfo - Meeting metadata
+     * @returns {Object} Formatted transcript object
+     */
+    createSimpleTranscript(textContent, meetingInfo) {
+        console.log('[StreamApiClient] Creating simple transcript from text content');
+        
+        // Try to parse WebVTT format if present
+        const entries = [];
+        if (textContent.includes('WEBVTT') || textContent.includes('-->')) {
+            console.log('[StreamApiClient] Detected WebVTT format');
+            const lines = textContent.split('\n');
+            let currentEntry = null;
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                // Skip empty lines and WEBVTT header
+                if (!line || line === 'WEBVTT') continue;
+                
+                // Check for timestamp line (e.g., "00:00:00.000 --> 00:00:05.000")
+                if (line.includes('-->')) {
+                    const [start, end] = line.split('-->').map(t => t.trim());
+                    currentEntry = {
+                        startTime: start,
+                        endTime: end,
+                        text: '',
+                        speaker: 'Unknown Speaker'
+                    };
+                } else if (currentEntry && line) {
+                    // This is caption text
+                    // Check if line contains speaker info (e.g., "John Doe: Hello")
+                    const speakerMatch = line.match(/^([^:]+):\s*(.+)$/);
+                    if (speakerMatch) {
+                        currentEntry.speaker = speakerMatch[1].trim();
+                        currentEntry.text = speakerMatch[2].trim();
+                    } else {
+                        currentEntry.text += (currentEntry.text ? ' ' : '') + line;
+                    }
+                    
+                    // If next line is empty or timestamp, save current entry
+                    if (i + 1 >= lines.length || !lines[i + 1].trim() || lines[i + 1].includes('-->')) {
+                        entries.push({
+                            id: entries.length + 1,
+                            text: currentEntry.text,
+                            speaker: currentEntry.speaker,
+                            speakerId: currentEntry.speaker.toLowerCase().replace(/\s+/g, '_'),
+                            startTime: currentEntry.startTime,
+                            endTime: currentEntry.endTime,
+                            confidence: 1,
+                            language: 'unknown',
+                            isEdited: false
+                        });
+                        currentEntry = null;
+                    }
+                }
+            }
+        }
+        
+        return {
+            raw: textContent,
+            meetingInfo: {
+                title: meetingInfo.title || 'Untitled Meeting',
+                url: meetingInfo.url,
+                siteUrl: meetingInfo.siteUrl,
+                extractedAt: new Date().toISOString()
+            },
+            metadata: {
+                version: '1.0',
+                type: 'WebVTT',
+                participants: [...new Set(entries.map(e => e.speaker))],
+                duration: entries.length > 0 ? entries[entries.length - 1].endTime : '00:00:00',
+                language: 'unknown',
+                entryCount: entries.length,
+                hasEvents: false
+            },
+            entries: entries,
+            events: [],
+            rawText: textContent
+        };
     }
 
     /**
