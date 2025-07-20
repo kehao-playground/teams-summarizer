@@ -74,19 +74,19 @@ When('I generate a summary with the current AI provider', async function() {
   const aiProvider = this.mockData.aiProvider || 'openai';
   
   // Mock summary generation based on provider
-  const mockSummary = this.generateMockSummary(transcript, aiProvider);
+  const mockSummary = generateMockSummary(transcript, aiProvider);
   this.setMockData('generatedSummary', mockSummary);
 });
 
 When('I generate a summary with OpenAI', async function() {
   const transcript = this.mockData.transcript || this.getDefaultTranscript();
-  const mockSummary = this.generateMockSummary(transcript, 'openai');
+  const mockSummary = generateMockSummary(transcript, 'openai');
   this.setMockData('generatedSummary', mockSummary);
 });
 
 When('I generate a summary with Claude', async function() {
   const transcript = this.mockData.transcript || this.getDefaultTranscript();
-  const mockSummary = this.generateMockSummary(transcript, 'claude');
+  const mockSummary = generateMockSummary(transcript, 'claude');
   this.setMockData('generatedSummary', mockSummary);
 });
 

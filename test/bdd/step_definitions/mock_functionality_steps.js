@@ -34,21 +34,8 @@ Given('I have mock transcript data', async function() {
   expect(transcript.entries.length).to.be.above(0);
 });
 
-When('I process the transcript', async function() {
-  const transcript = this.mockData.transcript;
-  
-  // Mock processing logic
-  const processed = {
-    entryCount: transcript.entries.length,
-    totalDuration: transcript.metadata.duration,
-    speakers: [...new Set(transcript.entries.map(e => e.speaker))],
-    language: transcript.metadata.language,
-    processedAt: new Date().toISOString()
-  };
-  
-  this.setMockData('processedTranscript', processed);
-  console.log('[MockTest] Transcript processed');
-});
+// Note: Duplicate step definition removed - using the one in transcript_steps.js
+// The processing logic has been moved to transcript_steps.js for consistency
 
 Then('the transcript should be formatted correctly', async function() {
   const processed = this.mockData.processedTranscript;

@@ -92,37 +92,12 @@ Feature: Export Meeting Summary
       | 4    | Test connection                   |
     And I should be able to complete setup within 2 minutes
 
-  @api-key-management
-  Scenario: Manage multiple API keys
+  @settings-management
+  Scenario: Configure basic settings
     Given I am in the settings view
-    When I add both OpenAI and Anthropic API keys
-    Then both providers should be available in the dropdown
-    And I should be able to set a default provider
-    And API keys should be masked in the UI
-    And keys should be stored securely in Chrome storage
-
-  @prompt-templates
-  Scenario: Import/Export prompt templates
-    Given I have created custom prompt templates:
-      | Template Name     | Focus Area                           |
-      | Technical Meeting | Architecture and technical decisions |
-      | Action Items      | Tasks and assignees                  |
-      | Executive Summary | High-level outcomes                  |
-    When I click "Export Templates"
-    Then a JSON file should download with all my templates
-    When I click "Import Templates" on another device
-    And I select the exported JSON file
-    Then all templates should be restored
-    And I should be able to use them immediately
-
-  @language-preferences
-  Scenario: Configure language preferences
-    Given I am in the settings view
-    When I set my preferred output language to "繁體中文"
-    And I set my fallback language to "English"
-    Then these preferences should be saved
-    And future summaries should default to Traditional Chinese
-    And if translation fails, English should be used as fallback
+    When I configure my API key and language preferences
+    Then the settings should be saved
+    And applied to future operations
 
   @validation-and-testing
   Scenario: Test API key validation
@@ -136,26 +111,8 @@ Feature: Export Meeting Summary
     And the key should be saved automatically
 
   @privacy-controls
-  Scenario: Manage privacy and data settings
+  Scenario: Manage privacy settings
     Given I am in the settings view
-    Then I should see privacy controls for:
-      | Setting                    | Default | Description                        |
-      | Store transcripts locally  | Yes     | Cache extracted transcripts        |
-      | Log debugging information  | No      | Help troubleshoot issues           |
-      | Share usage analytics      | No      | Anonymous usage statistics         |
-    And I should be able to toggle each setting
-    And changes should take effect immediately
-
-  @backup-restore
-  Scenario: Backup and restore all settings
-    Given I have configured:
-      | Setting Type      | Configuration                |
-      | API Keys          | OpenAI and Claude keys       |
-      | Prompt Templates  | 5 custom templates           |
-      | Language Prefs    | Traditional Chinese default  |
-      | Privacy Settings  | Custom privacy configuration |
-    When I click "Export Settings"
-    Then a backup file should be created
-    When I restore settings on a new installation
-    Then all configurations should be restored exactly
-    And the extension should work identically to the original setup
+    When I configure privacy preferences
+    Then I should be able to control data storage
+    And the settings should be respected

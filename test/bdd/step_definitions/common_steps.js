@@ -74,6 +74,65 @@ When('I click {string}', async function(buttonText) {
       this.setMockData('exported', true);
       break;
       
+    case 'Copy HTML':
+      // Generate HTML content and copy to clipboard
+      const summary = this.mockData.generatedSummary;
+      if (summary) {
+        const htmlContent = this.generateHTML(summary);
+        this.clipboardContent = htmlContent;
+        this.setMockData('clipboardContent', htmlContent);
+        this.setMockData('clipboardCopied', true);
+        this.setMockData('copiedToClipboard', true);
+        this.setMockData('clipboardFormat', 'html');
+      }
+      break;
+      
+    case 'Copy Plain Text':
+      // Generate plain text content and copy to clipboard
+      const summaryText = this.mockData.generatedSummary;
+      if (summaryText) {
+        const plainTextContent = this.generatePlainText(summaryText);
+        this.clipboardContent = plainTextContent;
+        this.setMockData('copiedToClipboard', true);
+        this.setMockData('clipboardFormat', 'text');
+      }
+      break;
+      
+    case 'Download .md':
+      // Generate markdown content for download
+      const summaryMd = this.mockData.generatedSummary;
+      if (summaryMd) {
+        const markdownContent = this.generateMarkdown(summaryMd);
+        this.downloadContent = markdownContent;
+        this.downloadFilename = this.generateFilename(summaryMd.title, summaryMd.date, 'md');
+        this.setMockData('downloaded', true);
+        this.setMockData('downloadFormat', 'md');
+      }
+      break;
+      
+    case 'Download .txt':
+      // Generate plain text content for download
+      const summaryTxt = this.mockData.generatedSummary;
+      if (summaryTxt) {
+        const textContent = this.generatePlainText(summaryTxt);
+        this.downloadContent = textContent;
+        this.downloadFilename = this.generateFilename(summaryTxt.title, summaryTxt.date, 'txt');
+        this.setMockData('downloaded', true);
+        this.setMockData('downloadFormat', 'txt');
+      }
+      break;
+      
+    case 'Export All Formats':
+      // Export all formats at once
+      const summaryAll = this.mockData.generatedSummary;
+      if (summaryAll) {
+        this.setMockData('exportingAll', true);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        this.setMockData('exportingAll', false);
+        this.setMockData('exportedAll', true);
+      }
+      break;
+      
     default:
       // Generic button click
       this.setMockData('buttonClicked', buttonText);

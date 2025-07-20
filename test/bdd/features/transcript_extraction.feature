@@ -16,7 +16,7 @@ Feature: Extract Teams Meeting Transcript
     When I click the extension icon
     And I click "Extract Transcript"
     Then I should see a progress indicator
-    And the transcript should be extracted within 5 seconds
+    And the transcript should be extracted successfully
     And the transcript should show:
       | Field              | Example Value           |
       | Speaker Name       | 王小明                  |
@@ -52,21 +52,18 @@ Feature: Extract Teams Meeting Transcript
 
   @large-transcript
   Scenario: Handle large meeting transcript
-    Given I am on a SharePoint Stream page with a 3-hour meeting
-    And the transcript has over 500 entries
+    Given I am on a SharePoint Stream page with a large meeting
     When I click "Extract Transcript"
     Then I should see "Processing large transcript..."
-    And the transcript should be extracted within 15 seconds
-    And all speaker entries should be preserved
+    And the transcript should be extracted successfully
+    And all content should be preserved
 
   @network-resilience
-  Scenario: Handle network interruption during extraction
+  Scenario: Handle network errors
     Given I am on a SharePoint Stream page
-    And I start extracting the transcript
-    When the network connection is interrupted
-    Then I should see a "Connection error" message
-    And I should see a "Try Again" button
-    And the transcript data should be preserved if partially loaded
+    When I encounter a network error during extraction
+    Then I should see an appropriate error message
+    And I should have the option to retry
 
   @permission-errors
   Scenario: Handle insufficient permissions

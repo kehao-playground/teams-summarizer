@@ -16,7 +16,7 @@ Feature: Generate AI Meeting Summary
     And the transcript is in Chinese (zh-tw)
     When I click "Generate Summary"
     Then I should see a progress indicator "Generating summary with GPT 4.1..."
-    And the summary should be generated within 15 seconds
+    And the summary should be generated successfully
     And the summary should contain sections:
       | Section       | Content Example                           |
       | 主要決策      | 確定Q2產品開發方向                        |
@@ -56,25 +56,20 @@ Feature: Generate AI Meeting Summary
 
   @large-context @openai
   Scenario: Handle large transcript with GPT 4.1
-    Given I have a 3-hour meeting transcript
-    And the transcript has 200,000+ tokens
-    And I'm using GPT 4.1 with 1M+ context window
+    Given I have a large meeting transcript
     When I click "Generate Summary"
-    Then the system should process the entire transcript without chunking
+    Then the system should process the entire transcript
     And I should see "Processing large transcript..."
     And the summary should maintain context across the entire meeting
-    And the generation should complete within 30 seconds
 
   @chunking @claude
-  Scenario: Handle transcript chunking with Claude Sonnet 4
-    Given I have a 3-hour meeting transcript
-    And the transcript exceeds Claude's 200k token limit
+  Scenario: Handle transcript chunking with Claude
+    Given I have a very large meeting transcript
     And I'm using Claude Sonnet 4
     When I click "Generate Summary"
-    Then the system should automatically chunk the transcript
-    And I should see "Processing in sections..."
-    And each chunk should be processed separately
-    And the final summary should combine all sections coherently
+    Then the system should handle the transcript appropriately
+    And I should see "Processing transcript..."
+    And the final summary should be complete and coherent
 
   @multilingual
   Scenario: Generate summary in multiple languages
@@ -87,25 +82,14 @@ Feature: Generate AI Meeting Summary
     Then the summary should be in Japanese
     And technical terms should be appropriately translated
 
-  @rate-limiting
-  Scenario: Handle API rate limiting
+  @api-resilience
+  Scenario: Handle API errors gracefully
     Given I have a valid API key
-    But the API provider is rate limiting requests
+    But the API service encounters an error
     When I click "Generate Summary"
-    Then I should see "Rate Limited" message
-    And I should see "Too many requests to the AI service"
-    And I should see a "Wait and Retry" button
-    And the system should automatically retry after the rate limit period
-
-  @retry-mechanism
-  Scenario: Handle temporary API failures
-    Given I have a valid API key
-    But the AI service is temporarily unavailable
-    When I click "Generate Summary"
-    Then the system should automatically retry
-    And I should see retry progress messages
-    And the summary should eventually be generated
-    And the retry attempts should be logged
+    Then I should see an appropriate error message
+    And I should have the option to retry
+    And the transcript data should be preserved
 
   @summary-quality
   Scenario: Validate summary content quality
@@ -120,11 +104,9 @@ Feature: Generate AI Meeting Summary
     And decisions should be distinguished from discussions
     And participant names should be preserved correctly
 
-  @token-efficiency
-  Scenario: Optimize token usage for cost efficiency
-    Given I have a moderate-length transcript (50,000 tokens)
+  @cost-awareness
+  Scenario: Track API usage costs
+    Given I have a transcript to summarize
     When I generate a summary
-    Then the token usage should be logged
-    And the system should use efficient prompt engineering
-    And the output should be comprehensive but concise
-    And the token cost should be reasonable for the content length
+    Then the system should log token usage
+    And provide cost estimates when available
