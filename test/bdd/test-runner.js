@@ -48,7 +48,8 @@ class BDDTestRunner {
       this.config.reportsDir,
       this.config.screenshotsDir,
       path.join(this.config.reportsDir, 'cucumber'),
-      path.join(this.config.reportsDir, 'coverage')
+      path.join(this.config.reportsDir, 'coverage'),
+      'test/reports'
     ];
 
     for (const dir of dirs) {
@@ -146,8 +147,8 @@ class BDDTestRunner {
       '--require', 'test/bdd/step_definitions/',
       '--require', 'test/bdd/support/world.js',
       '--format', 'progress-bar',
-      '--format', 'json:test/bdd/reports/cucumber-report.json',
-      '--format', 'html:test/bdd/reports/cucumber-report.html',
+      '--format', 'json:test/reports/cucumber-report.json',
+      '--format', 'html:test/reports/cucumber-report.html',
       '--parallel', this.config.parallel.toString(),
       '--retry', this.config.retries.toString()
     ];
@@ -184,7 +185,7 @@ class BDDTestRunner {
     
     try {
       // Read cucumber JSON report
-      const reportPath = path.join(this.config.reportsDir, 'cucumber-report.json');
+      const reportPath = 'test/reports/cucumber-report.json';
       const reportData = await fs.readFile(reportPath, 'utf8');
       const results = JSON.parse(reportData);
       
@@ -192,7 +193,7 @@ class BDDTestRunner {
       const summary = this.generateTestSummary(results);
       
       // Write summary to file
-      const summaryPath = path.join(this.config.reportsDir, 'test-summary.json');
+      const summaryPath = 'test/reports/test-summary.json';
       await fs.writeFile(summaryPath, JSON.stringify(summary, null, 2));
       
       console.log('📈 Test summary:', summary);
