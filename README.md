@@ -106,15 +106,22 @@ https://{tenant}.sharepoint.com/personal/{user}/_layouts/15/stream.aspx?id=/pers
 ```
 .
 ├── src/
-│   ├── background/          # Service worker
-│   ├── content/             # Content script
-│   ├── popup/               # Extension popup UI
-│   └── utils/               # Shared utilities
+│   ├── api/                 # API clients (OpenAI, Claude, Stream)
+│   ├── background/          # Service worker (TypeScript)
+│   ├── content/             # Content script (TypeScript)
+│   ├── popup/               # Extension popup UI (TypeScript)
+│   ├── storage/             # Storage management
+│   ├── export/              # Export functionality
+│   ├── prompt/              # Prompt templates
+│   ├── ui/                  # UI components
+│   └── utils/               # Shared utilities (TypeScript)
 ├── assets/                  # Icons and static files
+├── docs/                    # Documentation and screenshots
+├── test/                    # Test files (unit, integration, BDD)
+├── examples/                # Usage examples and demos
 ├── manifest.json            # Extension manifest
 ├── webpack.config.js        # Build configuration
 ├── tsconfig.json           # TypeScript configuration
-├── test/                   # Test files
 └── dist/                   # Built extension files
 ```
 
@@ -124,17 +131,21 @@ https://{tenant}.sharepoint.com/personal/{user}/_layouts/15/stream.aspx?id=/pers
 - `npm run dev` - Build for development with watch mode
 - `npm run test` - Run unit tests
 - `npm run test:bdd` - Run BDD tests with Cucumber.js
+- `npm run test:bdd:smoke` - Run smoke tests only
+- `npm run test:bdd:regression` - Run regression test suite
 - `npm run lint` - Run ESLint
 - `npm run type-check` - Run TypeScript type checking
 
 ### Testing
 
 ## Testing Status
-- **Unit Tests**: 352 passing
-- **BDD Smoke Tests**: 8/8 scenarios passing (100%)
-- **BDD Regression Tests**: 51/80 scenarios passing (29 undefined)
-- **E2E Tests**: 18 scenarios (manual testing required)
-- **API Integration Tests**: 2 scenarios (requires API keys)
+- **Unit Tests**: 295 passing, 18 skipped
+- **Integration Tests**: 2 test suites passing
+- **Test Suites**: 11 passed, 1 skipped (12 total)
+- **BDD Smoke Tests**: 8 scenarios (8 passed), 76 steps (76 passed) - 100%
+- **BDD Regression Tests**: 60 scenarios (60 passed), 529 steps (529 passed) - 100%
+- **E2E Tests**: Available (manual testing required)
+- **API Integration Tests**: Available (requires API keys)
 - **Manual Testing**: See [Manual Testing Guide](./MANUAL_TESTING_GUIDE.md) for E2E and API integration tests
 
 ## Testing Commands
@@ -151,11 +162,13 @@ open test/bdd/reports/cucumber-report.html
 
 ### Key Technologies
 
-- **TypeScript** for type safety
-- **Manifest V3** for Chrome Extension API
-- **Webpack** for bundling
-- **ESLint** for code quality
-- **Jest** for testing
+- **TypeScript** for type safety and modern development
+- **Manifest V3** for Chrome Extension API compliance
+- **Webpack 5** for efficient bundling and optimization
+- **Jest** for comprehensive unit and integration testing
+- **Cucumber.js** for BDD testing with Gherkin scenarios
+- **ESLint** with TypeScript support for code quality
+- **Chrome Extension APIs** for browser integration
 
 ## Security
 
