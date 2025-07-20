@@ -143,7 +143,7 @@ class BDDTestRunner {
 
   buildCucumberArgs(profile, tags) {
     const args = [
-      '--require', 'test/bdd/step_definitions/*.js',
+      '--require', 'test/bdd/step_definitions/',
       '--require', 'test/bdd/support/world.js',
       '--format', 'progress-bar',
       '--format', 'json:test/bdd/reports/cucumber-report.json',
