@@ -196,53 +196,28 @@ Given('I have a 3-hour meeting transcript', async function() {
   this.setMockData('tokenCount', 200000); // Simulate large token count
 });
 
-Given('the transcript has {int}\\+ tokens', async function(tokenCount) {
+Given('the transcript has {int}+ tokens', async function(tokenCount) {
   this.setMockData('tokenCount', tokenCount);
 });
 
-Given('I\\'m using GPT 4.1 with 1M\\+ context window', async function() {
+Given('I\'m using GPT 4.1 with 1M+ context window', async function() {
   this.setMockData('selectedProvider', 'openai');
   this.setMockData('modelContextLimit', 1047576);
 });
 
-Given('the transcript exceeds Claude\\'s 200k token limit', async function() {
+Given('the transcript exceeds Claude\'s 200k token limit', async function() {
   this.setMockData('tokenCount', 250000);
   this.setMockData('selectedProvider', 'anthropic');
   this.setMockData('modelContextLimit', 200000);
   this.setMockData('requiresChunking', true);
 });
 
-Given('I\\'m using Claude Sonnet 4', async function() {
+Given('I\'m using Claude Sonnet 4', async function() {
   this.setMockData('selectedProvider', 'anthropic');
   this.setMockData('model', 'claude-sonnet-4');
 });
 
-// Action steps
-When('I click {string}', async function(buttonText) {
-  const page = this.popupPage || this.page;
-  
-  // Simulate clicking the generate summary button
-  if (buttonText === 'Generate Summary') {
-    // Start summary generation process
-    this.setMockData('summaryGenerating', true);
-    
-    await page.evaluate(() => {
-      // Show progress indicator
-      const progressDiv = document.createElement('div');
-      progressDiv.id = 'summary-progress';
-      progressDiv.innerHTML = '<div class="spinner"></div><p>Generating summary...</p>';
-      document.body.appendChild(progressDiv);
-    });
-    
-    // Simulate API call delay
-    await page.waitForTimeout(1000);
-  }
-  
-  if (buttonText === 'Regenerate Summary') {
-    this.setMockData('regenerating', true);
-  }
-});
-
+// Action steps (specific to AI summary generation)
 When('I switch to {string} provider', async function(provider) {
   const normalizedProvider = provider.toLowerCase().includes('claude') ? 'anthropic' : 'openai';
   this.setMockData('selectedProvider', normalizedProvider);

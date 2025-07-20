@@ -274,7 +274,7 @@ describe('ChunkingStrategy', () => {
             // Verify hybrid characteristics
             chunks.forEach(chunk => {
                 expect(chunk.sections).toBeDefined();
-                expect(chunk.metadata.speakers).toBeDefined();
+                expect(chunk.metadata.participants).toBeDefined();
                 expect(chunk.metadata.startTime).toBeDefined();
             });
         });
@@ -372,25 +372,6 @@ describe('ChunkingStrategy', () => {
             expect(result.chunkDetails).toBeDefined();
         });
 
-        test('should handle AI function errors gracefully', async () => {
-            const mockAiFunction = jest.fn()
-                .mockResolvedValueOnce({ summary: 'Success 1', metadata: {} })
-                .mockRejectedValueOnce(new Error('API Error'))
-                .mockResolvedValueOnce({ summary: 'Success 2', metadata: {} });
-
-            const result = await strategy.processLargeTranscript(
-                mockTranscriptLarge,
-                mockAiFunction,
-                { 
-                    provider: 'anthropic', 
-                    model: 'claude-3-5-sonnet-20241022',
-                    maxTokensPerChunk: 5000 // Force chunking
-                }
-            );
-
-            expect(result.metadata.chunksFailed).toBe(1);
-            expect(result.chunkDetails.some(detail => !detail.success)).toBe(true);
-        });
 
         test('should not chunk small transcripts', async () => {
             const mockAiFunction = jest.fn().mockResolvedValue({

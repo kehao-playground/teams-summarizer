@@ -65,7 +65,8 @@ describe('StreamApiClient', () => {
                 'transcriptId789'
             );
             
-            expect(url).not.toContain('//');
+            // Should not have double slashes after the protocol
+            expect(url).not.toMatch(/https:\/\/.*\/\//);
             expect(url).toContain('https://tenant.sharepoint.com/_api');
         });
     });

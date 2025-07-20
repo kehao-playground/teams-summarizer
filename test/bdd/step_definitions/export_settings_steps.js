@@ -81,8 +81,8 @@ Given('I have summaries for different meetings:', async function(dataTable) {
   this.setMockData('multipleSummaries', meetings);
 });
 
-// Export Actions
-When('I click {string}', async function(buttonText) {
+// Export Actions (specific button handlers)
+When('I click export button {string}', async function(buttonText) {
   const page = this.popupPage || this.page;
   
   if (buttonText === 'Download .md') {
@@ -519,12 +519,5 @@ async function mockBatchExport() {
   this.setMockData('exportedFormats', ['markdown', 'html', 'plaintext']);
 }
 
-// Bind helper methods to world
-ExtensionTestWorld.prototype.generateFormattedSummary = generateFormattedSummary;
-ExtensionTestWorld.prototype.generateMarkdown = generateMarkdown;
-ExtensionTestWorld.prototype.generateHTML = generateHTML;
-ExtensionTestWorld.prototype.generatePlainText = generatePlainText;
-ExtensionTestWorld.prototype.generateFilename = generateFilename;
-ExtensionTestWorld.prototype.mockDownload = mockDownload;
-ExtensionTestWorld.prototype.mockClipboardCopy = mockClipboardCopy;
-ExtensionTestWorld.prototype.mockBatchExport = mockBatchExport;
+// Note: Helper functions defined in this file are used by step definitions
+// World instance is automatically available via 'this' context in step definitions

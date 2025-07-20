@@ -12,7 +12,7 @@ const fs = require('fs').promises;
 class BDDTestRunner {
   constructor() {
     this.config = {
-      projectRoot: path.join(__dirname, '../../../'),
+      projectRoot: path.join(__dirname, '../../'),
       reportsDir: path.join(__dirname, '../reports'),
       screenshotsDir: path.join(__dirname, '../reports/screenshots'),
       baseUrl: process.env.BASE_URL || 'https://cht365-my.sharepoint.com',
@@ -67,7 +67,7 @@ class BDDTestRunner {
     console.log('🔨 Building Chrome extension...');
     
     return new Promise((resolve, reject) => {
-      const buildProcess = spawn('npm', ['run', 'build'], {
+      const buildProcess = spawn('npm', ['run', 'build:dev'], {
         cwd: this.config.projectRoot,
         stdio: 'inherit',
         shell: true

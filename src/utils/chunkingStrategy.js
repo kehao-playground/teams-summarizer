@@ -502,7 +502,7 @@ class ChunkingStrategy {
      */
     async combineSectionSummaries(chunkSummaries, originalMetadata, aiSummaryFunction, options) {
         // Filter out error summaries
-        const validSummaries = chunkSummaries.filter(cs => !cs.summary.error);
+        const validSummaries = chunkSummaries.filter(cs => cs.summary && !cs.summary.error);
         
         if (validSummaries.length === 0) {
             throw new Error('All chunk processing failed - cannot generate combined summary');
@@ -538,9 +538,9 @@ class ChunkingStrategy {
 
         // Enhance with chunking metadata
         return {
-            ...finalSummary,
+            ...(finalSummary || {}),
             metadata: {
-                ...finalSummary.metadata,
+                ...((finalSummary && finalSummary.metadata) || {}),
                 processingMethod: 'large_transcript_chunked',
                 chunksProcessed: validSummaries.length,
                 chunksFailed: chunkSummaries.length - validSummaries.length,
@@ -555,7 +555,7 @@ class ChunkingStrategy {
                 timeRange: cs.timeRange,
                 speakers: cs.speakers,
                 tokenCount: cs.tokenCount,
-                success: !cs.summary.error
+                success: !(cs.summary && cs.summary.error)
             }))
         };
     }

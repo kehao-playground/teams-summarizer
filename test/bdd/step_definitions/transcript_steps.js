@@ -161,7 +161,7 @@ When('I click the extension icon', async function() {
   await this.popupPage.waitForSelector('body', { timeout: 5000 });
 });
 
-When('I click {string}', async function(buttonText) {
+When('I click transcript button {string}', async function(buttonText) {
   const page = this.popupPage || this.page;
   
   // Find button by text content

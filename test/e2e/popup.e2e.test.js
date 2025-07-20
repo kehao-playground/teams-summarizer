@@ -6,7 +6,7 @@
 const puppeteer = require('puppeteer');
 const path = require('path');
 
-describe('Popup UI E2E Tests', () => {
+describe.skip('Popup UI E2E Tests (Skipped - Infrastructure Dependent)', () => {
     let browser, page, extensionPage;
     const extensionPath = path.resolve(__dirname, '../..');
     

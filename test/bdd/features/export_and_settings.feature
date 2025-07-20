@@ -79,12 +79,6 @@ Feature: Export Meeting Summary
       | Plain Text  | .txt      | text/plain; charset=utf-8       |
     And all files should contain the same content in different formats
 
-@chrome @settings
-Feature: Configure Extension Settings
-  As a user
-  I want to manage my API keys and preferences
-  So that I can customize the extension behavior
-
   @smoke @first-setup
   Scenario: First-time setup wizard
     Given I have just installed the extension

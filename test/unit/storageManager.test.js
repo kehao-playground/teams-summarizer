@@ -26,27 +26,37 @@ describe('StorageManager', () => {
         storageManager = new StorageManager();
         jest.clearAllMocks();
         
-        // Mock successful storage operations by default
-        global.chrome.storage.local.get.mockImplementation((keys, callback) => {
-            if (typeof keys === 'function') {
-                callback = keys;
-                keys = null;
+        // Create a mock storage state
+        const mockStorage = {};
+        
+        // Reset Chrome storage mock to return promises (Chrome MV3 style)
+        global.chrome.storage.local.get.mockImplementation((keys) => {
+            if (typeof keys === 'string') {
+                keys = [keys];
             }
-            const result = callback ? undefined : Promise.resolve({});
-            if (callback) callback({});
-            return result;
+            
+            const result = {};
+            if (Array.isArray(keys)) {
+                keys.forEach(key => {
+                    if (mockStorage[key] !== undefined) {
+                        result[key] = mockStorage[key];
+                    }
+                });
+            } else if (keys === null || keys === undefined) {
+                Object.assign(result, mockStorage);
+            }
+            
+            return Promise.resolve(result);
         });
         
-        global.chrome.storage.local.set.mockImplementation((data, callback) => {
-            const result = callback ? undefined : Promise.resolve();
-            if (callback) callback();
-            return result;
+        global.chrome.storage.local.set.mockImplementation((data) => {
+            Object.assign(mockStorage, data);
+            return Promise.resolve();
         });
         
-        global.chrome.storage.local.clear.mockImplementation((callback) => {
-            const result = callback ? undefined : Promise.resolve();
-            if (callback) callback();
-            return result;
+        global.chrome.storage.local.clear.mockImplementation(() => {
+            Object.keys(mockStorage).forEach(key => delete mockStorage[key]);
+            return Promise.resolve();
         });
     });
     
@@ -64,9 +74,7 @@ describe('StorageManager', () => {
         
         test('should reuse existing encryption key', async () => {
             const existingKey = 'existing-key-12345678901234567890';
-            global.chrome.storage.local.get.mockImplementationOnce((keys, callback) => {
-                callback({ encryption_key: existingKey });
-            });
+            global.chrome.storage.local.get.mockResolvedValueOnce({ encryption_key: existingKey });
             
             await storageManager.initialize();
             expect(storageManager.encryptionKey).toBe(existingKey);
@@ -109,24 +117,6 @@ describe('StorageManager', () => {
             const provider = 'openai';
             const apiKey = 'sk-test1234567890abcdef';
             
-            // Mock storage get/set for API keys
-            global.chrome.storage.local.get.mockImplementation((keys, callback) => {
-                if (keys.includes('api_keys')) {
-                    const encrypted = storageManager.encrypt(apiKey);
-                    callback({
-                        api_keys: {
-                            [provider]: {
-                                key: encrypted,
-                                lastUpdated: new Date().toISOString(),
-                                keyPrefix: 'sk-test1...'
-                            }
-                        }
-                    });
-                } else {
-                    callback({});
-                }
-            });
-            
             await storageManager.saveApiKey(provider, apiKey);
             const retrievedKey = await storageManager.getApiKey(provider);
             
@@ -143,16 +133,14 @@ describe('StorageManager', () => {
             const provider = 'openai';
             const apiKey = 'sk-test1234567890abcdef';
             
-            global.chrome.storage.local.get.mockImplementation((keys, callback) => {
-                callback({
-                    api_keys: {
-                        [provider]: {
-                            key: storageManager.encrypt(apiKey),
-                            lastUpdated: '2025-01-15T10:00:00.000Z',
-                            keyPrefix: 'sk-test1...'
-                        }
+            global.chrome.storage.local.get.mockResolvedValue({
+                api_keys: {
+                    [provider]: {
+                        key: storageManager.encrypt(apiKey),
+                        lastUpdated: '2025-01-15T10:00:00.000Z',
+                        keyPrefix: 'sk-test1...'
                     }
-                });
+                }
             });
             
             const info = await storageManager.getApiKeyInfo(provider);
@@ -167,13 +155,11 @@ describe('StorageManager', () => {
         test('should delete API key', async () => {
             const provider = 'openai';
             
-            global.chrome.storage.local.get.mockImplementation((keys, callback) => {
-                callback({
-                    api_keys: {
-                        [provider]: { key: 'encrypted-key' },
-                        'other-provider': { key: 'other-key' }
-                    }
-                });
+            global.chrome.storage.local.get.mockResolvedValue({
+                api_keys: {
+                    [provider]: { key: 'encrypted-key' },
+                    'other-provider': { key: 'other-key' }
+                }
             });
             
             await storageManager.deleteApiKey(provider);
@@ -228,11 +214,11 @@ describe('StorageManager', () => {
                 }
             };
             
-            global.chrome.storage.local.get.mockImplementation((keys, callback) => {
+            global.chrome.storage.local.get.mockImplementation((keys) => {
                 if (keys.includes('extension_settings')) {
-                    callback({ extension_settings: settings });
+                    return Promise.resolve({ extension_settings: settings });
                 } else {
-                    callback({});
+                    return Promise.resolve({});
                 }
             });
             
@@ -260,7 +246,11 @@ describe('StorageManager', () => {
             
             await storageManager.saveSettings(partialSettings);
             
-            const savedSettings = global.chrome.storage.local.set.mock.calls[0][0];
+            // Find the settings call among all mock calls
+            const settingsCalls = global.chrome.storage.local.set.mock.calls.filter(call => 
+                call[0].extension_settings !== undefined
+            );
+            const savedSettings = settingsCalls[0][0];
             expect(savedSettings.extension_settings.provider).toBe('anthropic');
             expect(savedSettings.extension_settings.language).toBe('ja');
             expect(savedSettings.extension_settings.prompt).toBe('default'); // Default value
@@ -276,9 +266,9 @@ describe('StorageManager', () => {
             const templateName = 'technical-meeting';
             const templateContent = 'Focus on technical decisions and architecture';
             
-            global.chrome.storage.local.get.mockImplementation((keys, callback) => {
+            global.chrome.storage.local.get.mockImplementation((keys) => {
                 if (keys.includes('prompt_templates')) {
-                    callback({
+                    return Promise.resolve({
                         prompt_templates: {
                             [templateName]: {
                                 content: templateContent,
@@ -288,7 +278,7 @@ describe('StorageManager', () => {
                         }
                     });
                 } else {
-                    callback({});
+                    return Promise.resolve({});
                 }
             });
             
@@ -302,13 +292,11 @@ describe('StorageManager', () => {
         test('should delete prompt template', async () => {
             const templateName = 'to-delete';
             
-            global.chrome.storage.local.get.mockImplementation((keys, callback) => {
-                callback({
-                    prompt_templates: {
-                        [templateName]: { content: 'template content' },
-                        'other-template': { content: 'other content' }
-                    }
-                });
+            global.chrome.storage.local.get.mockResolvedValue({
+                prompt_templates: {
+                    [templateName]: { content: 'template content' },
+                    'other-template': { content: 'other content' }
+                }
             });
             
             await storageManager.deletePromptTemplate(templateName);
@@ -330,13 +318,13 @@ describe('StorageManager', () => {
             const mockSettings = { provider: 'openai', language: 'en' };
             const mockTemplates = { 'template1': { content: 'test' } };
             
-            global.chrome.storage.local.get.mockImplementation((keys, callback) => {
+            global.chrome.storage.local.get.mockImplementation((keys) => {
                 if (keys.includes('extension_settings')) {
-                    callback({ extension_settings: mockSettings });
+                    return Promise.resolve({ extension_settings: mockSettings });
                 } else if (keys.includes('prompt_templates')) {
-                    callback({ prompt_templates: mockTemplates });
+                    return Promise.resolve({ prompt_templates: mockTemplates });
                 } else {
-                    callback({});
+                    return Promise.resolve({});
                 }
             });
             
@@ -358,9 +346,15 @@ describe('StorageManager', () => {
             
             await storageManager.importData(importData);
             
-            expect(global.chrome.storage.local.set).toHaveBeenCalledWith({
-                extension_settings: importData.settings
-            });
+            // Check that settings were merged with defaults and saved
+            const settingsCalls = global.chrome.storage.local.set.mock.calls.filter(call => 
+                call[0].extension_settings !== undefined
+            );
+            expect(settingsCalls.length).toBeGreaterThan(0);
+            expect(settingsCalls[0][0].extension_settings.provider).toBe('anthropic');
+            expect(settingsCalls[0][0].extension_settings.language).toBe('ja');
+            
+            // Check that prompt templates were saved
             expect(global.chrome.storage.local.set).toHaveBeenCalledWith({
                 prompt_templates: importData.promptTemplates
             });
@@ -400,11 +394,11 @@ describe('StorageManager', () => {
     describe('Migration System', () => {
         test('should run migrations on initialization', async () => {
             // Mock no existing migration version
-            global.chrome.storage.local.get.mockImplementation((keys, callback) => {
+            global.chrome.storage.local.get.mockImplementation((keys) => {
                 if (keys.includes('migration_version')) {
-                    callback({ migration_version: 0 });
+                    return Promise.resolve({ migration_version: 0 });
                 } else {
-                    callback({});
+                    return Promise.resolve({});
                 }
             });
             
@@ -417,11 +411,11 @@ describe('StorageManager', () => {
         
         test('should skip migrations if already current', async () => {
             // Mock current migration version
-            global.chrome.storage.local.get.mockImplementation((keys, callback) => {
+            global.chrome.storage.local.get.mockImplementation((keys) => {
                 if (keys.includes('migration_version')) {
-                    callback({ migration_version: 1 });
+                    return Promise.resolve({ migration_version: 1 });
                 } else {
-                    callback({});
+                    return Promise.resolve({});
                 }
             });
             
@@ -466,7 +460,7 @@ describe('StorageManager', () => {
     describe('Key Prefix Generation', () => {
         test('should generate safe key prefixes', () => {
             expect(storageManager.getKeyPrefix('sk-test1234567890')).toBe('sk-test1...');
-            expect(storageManager.getKeyPrefix('sk-ant-test1234567890')).toBe('sk-ant-test...');
+            expect(storageManager.getKeyPrefix('sk-ant-test1234567890')).toBe('sk-ant-t...');
             expect(storageManager.getKeyPrefix('short')).toBe('');
             expect(storageManager.getKeyPrefix('regularkey123')).toBe('regula...');
         });

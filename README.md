@@ -106,8 +106,15 @@ https://{tenant}.sharepoint.com/personal/{user}/_layouts/15/stream.aspx?id=/pers
 - `npm run build` - Build for production
 - `npm run dev` - Build for development with watch mode
 - `npm run test` - Run unit tests
+- `npm run test:bdd` - Run BDD tests with Cucumber.js
 - `npm run lint` - Run ESLint
 - `npm run type-check` - Run TypeScript type checking
+
+### Testing
+
+- **Automated Tests**: 352 passing unit/integration tests
+- **Manual Testing**: See [Manual Testing Guide](./MANUAL_TESTING_GUIDE.md) for E2E and API integration tests
+- **BDD Tests**: Cucumber.js scenarios for behavior testing
 
 ### Key Technologies
 

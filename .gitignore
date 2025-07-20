@@ -289,3 +289,15 @@ Temporary Items
 **/*-private.*
 **/*-confidential.*
 
+# Test reports and generated files
+test/reports/
+test/bdd/reports/
+*.test-results.json
+coverage/
+.nyc_output/
+
+# Temporary test files
+test/temp/
+test/fixtures/temp/
+test/**/temp/
+

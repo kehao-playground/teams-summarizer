@@ -400,3 +400,30 @@ function verifyMultiLanguageSupport() {
 if (typeof window !== 'undefined') {
     window.verifyMultiLanguageSupport = verifyMultiLanguageSupport;
 }
+
+// Jest test integration
+describe('Multi-Language Integration Tests', () => {
+    test('should verify multi-language support verification function exists', () => {
+        expect(verifyMultiLanguageSupport).toBeDefined();
+        expect(typeof verifyMultiLanguageSupport).toBe('function');
+    });
+
+    test('should return complete verification object', () => {
+        const verification = verifyMultiLanguageSupport();
+        
+        expect(verification).toBeDefined();
+        expect(verification.uiLanguages).toEqual(['English', '繁體中文', '简体中文', '日本語']);
+        expect(verification.aiSupport).toEqual(['OpenAI GPT-4.1', 'Claude Sonnet 4']);
+        expect(verification.exportFormats).toEqual(['Markdown', 'HTML', 'Text']);
+        expect(verification.storageIntegration).toBe(true);
+        expect(verification.complete).toBe(true);
+    });
+
+    test('should create MultiLanguageTestSuite instance', () => {
+        const suite = new MultiLanguageTestSuite();
+        expect(suite).toBeDefined();
+        expect(suite.testResults).toEqual([]);
+        expect(typeof suite.runAllTests).toBe('function');
+        expect(typeof suite.generateReport).toBe('function');
+    });
+});
