@@ -190,7 +190,7 @@ When('I click transcript button {string}', async function(buttonText) {
     }
     
     // Wait for any resulting actions
-    await page.waitForTimeout(1000);
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
   } catch (error) {
     // For demo purposes, simulate the click action

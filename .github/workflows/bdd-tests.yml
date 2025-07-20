@@ -128,11 +128,26 @@ jobs:
         npx license-checker --failOn 'GPL-2.0;GPL-3.0'
         
     - name: Scan for secrets
-      uses: trufflesecurity/trufflehog@main
-      with:
-        path: ./
-        base: main
-        head: HEAD
+      run: |
+        # Check if BASE and HEAD are the same commit
+        BASE_COMMIT=$(git rev-parse main 2>/dev/null || echo "")
+        HEAD_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "")
+        
+        if [ "$BASE_COMMIT" = "$HEAD_COMMIT" ]; then
+          echo "ℹ️ BASE and HEAD are the same commit ($BASE_COMMIT)"
+          echo "   Skipping secret scan for single commit - no changes to analyze"
+          echo "   This is expected behavior for push events with single commits"
+        else
+          echo "🔍 Scanning for secrets between $BASE_COMMIT and $HEAD_COMMIT"
+          docker run --rm -v .:/tmp -w /tmp \
+            ghcr.io/trufflesecurity/trufflehog:latest \
+            git file:///tmp/ \
+            --since-commit "$BASE_COMMIT" \
+            --branch "$HEAD_COMMIT" \
+            --fail \
+            --no-update \
+            --github-actions
+        fi
 
   performance-tests:
     runs-on: ubuntu-latest

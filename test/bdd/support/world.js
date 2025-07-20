@@ -45,6 +45,12 @@ class ExtensionTestWorld {
         this.extensionId = this.extensionUrl.match(/chrome-extension:\/\/([a-z]+)/)?.[1];
       }
     }
+    
+    // Fallback to mock extension ID for testing
+    if (!this.extensionId) {
+      this.extensionId = 'mock-extension-id-for-testing';
+      this.extensionUrl = `chrome-extension://${this.extensionId}/popup/popup.html`;
+    }
   }
 
   /**
@@ -245,7 +251,7 @@ class ExtensionTestWorld {
   async clickElement(selector, page = null) {
     const targetPage = page || this.page;
     await targetPage.click(selector);
-    await targetPage.waitForTimeout(500); // Small delay for UI updates
+    await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UI updates
   }
 
   /**

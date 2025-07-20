@@ -18,14 +18,14 @@ When('I click {string}', async function(buttonText) {
   switch (buttonText) {
     case 'Extract Transcript':
       this.setMockData('extracting', true);
-      await page.waitForTimeout(500); // Simulate processing
+      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate processing
       this.setMockData('extracting', false);
       this.setMockData('transcriptExtracted', true);
       break;
       
     case 'Generate Summary':
       this.setMockData('summaryGenerating', true);
-      await page.waitForTimeout(1000); // Simulate AI processing
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate AI processing
       this.setMockData('summaryGenerating', false);
       this.setMockData('summaryComplete', true);
       
@@ -69,7 +69,7 @@ When('I click {string}', async function(buttonText) {
       const format = buttonText.split(' ').pop().toLowerCase();
       this.setMockData('exporting', true);
       this.setMockData('exportFormat', format);
-      await page.waitForTimeout(200);
+      await new Promise(resolve => setTimeout(resolve, 200));
       this.setMockData('exporting', false);
       this.setMockData('exported', true);
       break;

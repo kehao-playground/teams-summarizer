@@ -281,7 +281,7 @@ Then('the summary should be generated within {int} seconds', async function(seco
   const startTime = Date.now();
   
   // Simulate summary generation completion
-  await this.popupPage.waitForTimeout(Math.min(seconds * 100, 2000)); // Simulate timing
+  await new Promise(resolve => setTimeout(resolve, Math.min(seconds * 100, 2000))); // Simulate timing
   
   const elapsedTime = Date.now() - startTime;
   expect(elapsedTime).to.be.below(seconds * 1000);
