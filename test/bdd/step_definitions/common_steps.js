@@ -61,26 +61,6 @@ Given('the extension has necessary permissions', async function() {
   expect(this.mockData.hasPermissions).to.be.true;
 });
 
-// Common assertion steps
-Then('I should see {string}', async function(expectedText) {
-  // Mock visibility check
-  console.log(`[CommonSteps] Checking for text: ${expectedText}`);
-  
-  // Simulate different text checks
-  if (expectedText.includes('progress') || expectedText.includes('Processing')) {
-    expect(this.mockData.extracting || this.mockData.summaryGenerating).to.be.true;
-  } else if (expectedText.includes('error') || expectedText.includes('Error')) {
-    expect(this.mockData.hasError).to.be.true;
-  } else {
-    // Generic text visibility check
-    this.setMockData('textVisible', expectedText);
-    expect(this.mockData.textVisible).to.equal(expectedText);
-  }
-});
-
-Then('I should see a {string} button', async function(buttonText) {
-  // Mock button visibility check
-  console.log(`[CommonSteps] Checking for button: ${buttonText}`);
-  this.setMockData('buttonVisible', buttonText);
-  expect(this.mockData.buttonVisible).to.equal(buttonText);
-});
+// Note: Removed duplicate step definitions that are already defined in specific step files
+// - "I should see {string}" is now only in transcript_steps.js 
+// - "I should see a {string} button" is now only in transcript_steps.js

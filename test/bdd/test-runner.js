@@ -143,7 +143,7 @@ class BDDTestRunner {
 
   buildCucumberArgs(profile, tags) {
     const args = [
-      '--require', 'test/bdd/step_definitions/**/*.js',
+      '--require', 'test/bdd/step_definitions/*.js',
       '--require', 'test/bdd/support/world.js',
       '--format', 'progress-bar',
       '--format', 'json:test/bdd/reports/cucumber-report.json',
@@ -161,10 +161,9 @@ class BDDTestRunner {
         args.push('--tags', '@chrome');
         break;
       case 'regression':
-        args.push('--tags', 'not @wip');
+        // Run all available tests
         break;
       case 'ci':
-        args.push('--tags', 'not @manual and not @wip');
         args.push('--fail-fast');
         break;
     }
@@ -175,7 +174,7 @@ class BDDTestRunner {
     }
 
     // Add feature files
-    args.push('test/bdd/features/**/*.feature');
+    args.push('test/bdd/features/*.feature');
 
     return args;
   }

@@ -326,18 +326,7 @@ Then('the summary should be in Traditional Chinese', async function() {
   expect(summaryText).to.match(/[\u4e00-\u9fff]/); // Contains Chinese characters
 });
 
-Then('I should see {string}', async function(message) {
-  const page = this.popupPage || this.page;
-  
-  // For demo purposes, verify based on mock state
-  if (message.includes('Claude Sonnet 4')) {
-    expect(this.mockData.selectedProvider).to.equal('anthropic');
-  }
-  
-  if (message.includes('Invalid API Key')) {
-    expect(this.mockData.validApiKey).to.be.false;
-  }
-});
+// Note: Removed duplicate "I should see {string}" step - now only in transcript_steps.js
 
 Then('a new summary should be generated', async function() {
   expect(this.mockData.regenerating || this.mockData.summaryComplete).to.be.true;
@@ -361,12 +350,7 @@ Then('the transcript should remain available', async function() {
   expect(this.mockData.transcriptExtracted).to.be.true;
 });
 
-Then('I should see a {string} button', async function(buttonText) {
-  const page = this.popupPage || this.page;
-  
-  // For demo, assume button exists
-  expect(true).to.be.true;
-});
+// Note: Removed duplicate "I should see a {string} button" step - now only in transcript_steps.js
 
 Then('the summary should emphasize technical aspects', async function() {
   const summary = this.mockData.generatedSummary;
