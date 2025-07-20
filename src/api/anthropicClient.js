@@ -85,7 +85,52 @@ Structure your response as follows:
 ## Next Technical Steps
 - [Immediate technical actions required]
 
-Use technical terminology appropriately and preserve technical context from the discussion.`
+Use technical terminology appropriately and preserve technical context from the discussion.`,
+
+  section: `You are a meeting section summarizer. Please analyze this portion of a meeting transcript and provide a focused summary for this section.
+
+Structure your response as follows:
+
+## Section Summary
+[Brief overview of what was discussed in this section]
+
+## Key Points
+- [Main topics covered in this section]
+
+## Decisions or Outcomes
+- [Any decisions made or conclusions reached in this section]
+
+## Action Items
+- [Tasks or follow-ups identified in this section]
+
+## Context for Next Section
+- [Important context that carries forward]
+
+This is part of a larger meeting, so focus on this section while maintaining continuity.`,
+
+  combine: `You are a meeting summary combiner. Please analyze the provided section summaries and create a cohesive final meeting summary.
+
+Structure your response as follows:
+
+## Executive Summary
+[High-level overview of the entire meeting]
+
+## Key Discussion Points
+- [Main topics discussed across all sections]
+
+## Major Decisions
+- [Important decisions reached during the meeting]
+
+## Action Items
+- [All actionable tasks identified with responsible parties]
+
+## Follow-up Required
+- [Items that need future attention]
+
+## Meeting Outcomes
+- [Overall results and next steps]
+
+Ensure the final summary flows naturally and avoids repetition while capturing all important information from the section summaries.`
 };
 
 /**
@@ -235,14 +280,61 @@ class AnthropicClient {
     }
 
     /**
-     * Generate summary for large transcript using chunking
+     * Generate summary for large transcript using advanced chunking strategy
      */
     async generateChunkedSummary(formattedTranscript, options) {
-        console.log('[AnthropicClient] Large transcript detected, using chunking strategy');
+        console.log('[AnthropicClient] Large transcript detected, using advanced chunking strategy');
         
-        // This is a placeholder for chunking implementation
-        // For Task 9, we'll implement basic chunking
-        // More sophisticated chunking will be implemented in Task 13
+        // Import chunking strategy (dynamic import for browser compatibility)
+        let chunkingStrategy;
+        try {
+            if (typeof window !== 'undefined' && window.chunkingStrategy) {
+                chunkingStrategy = window.chunkingStrategy;
+            } else {
+                const { chunkingStrategy: cs } = require('../utils/chunkingStrategy.js');
+                chunkingStrategy = cs;
+            }
+        } catch (error) {
+            console.warn('[AnthropicClient] Advanced chunking not available, falling back to basic chunking');
+            return await this.generateBasicChunkedSummary(formattedTranscript, options);
+        }
+
+        // Use advanced chunking strategy with progress tracking
+        const progressCallback = options.progressCallback || ((update) => {
+            console.log(`[AnthropicClient] ${update.stage}: ${update.message} (${update.current}/${update.total})`);
+        });
+
+        const chunkingOptions = {
+            provider: 'anthropic',
+            model: options.model || MODEL_CLAUDE_SONNET_4,
+            strategy: options.chunkingStrategy || 'hybrid',
+            language: options.language || 'en'
+        };
+
+        // Bind generateSingleSummary to use with chunking strategy
+        const boundGenerateSummary = async (transcript, summaryOptions) => {
+            return await this.generateSingleSummary(transcript, {
+                ...options,
+                ...summaryOptions,
+                promptType: summaryOptions.isChunk ? 'section' : 
+                           summaryOptions.isCombinung ? 'combine' : 
+                           options.promptType || 'default'
+            });
+        };
+
+        return await chunkingStrategy.processLargeTranscript(
+            formattedTranscript,
+            boundGenerateSummary,
+            chunkingOptions,
+            progressCallback
+        );
+    }
+
+    /**
+     * Fallback basic chunking for compatibility
+     */
+    async generateBasicChunkedSummary(formattedTranscript, options) {
+        console.log('[AnthropicClient] Using basic chunking fallback');
         
         const chunks = this.createBasicChunks(formattedTranscript);
         const summaries = [];
