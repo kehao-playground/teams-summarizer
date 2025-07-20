@@ -305,6 +305,52 @@ npm test test/openaiClient.test.js
 
 ---
 
+## Testing Best Practices
+
+### Principles Applied
+1. **Focus on User Behavior**: Test what users experience, not implementation details
+2. **Avoid Flaky Tests**: Remove environment-dependent assertions (timing, specific counts)
+3. **Consolidate Similar Scenarios**: Reduce redundancy by merging similar test cases
+4. **Testability First**: Remove scenarios that cannot be reliably automated
+5. **Clear Step Definitions**: Each Gherkin step has exactly one matching definition
+
+### Common Pitfalls to Avoid
+- Overly strict timing constraints ("within 15 seconds" → "successfully")
+- Testing specific token counts instead of "small/medium/large" transcripts
+- Redundant network error scenarios
+- Browser state tests that can't be automated
+- Complex scenarios that combine multiple unrelated features
+
+### Test Design Guidelines
+- Write tests that describe user intent, not implementation
+- Use success/failure assertions instead of time-based ones
+- Keep steps generic and reusable across scenarios
+- Test critical user journeys with edge cases handled by unit tests
+- Mock external dependencies to ensure test isolation
+
+## Chinese Language Testing
+
+### Character Encoding Tests
+- Verify UTF-8 BOM for text file downloads
+- Test Chinese characters in filenames and URLs
+- Validate URL encoding for Chinese paths (encoded and decoded forms)
+- Ensure proper display of Chinese speakers and content
+
+### Multi-language Summary Tests
+```
+Test languages and expected output:
+- English → English summary
+- 繁體中文 → Traditional Chinese summary  
+- 简体中文 → Simplified Chinese summary
+- 日本語 → Japanese summary
+```
+
+### Chinese-specific Test Cases
+1. **Chinese Speaker Names**: Test extraction of names like '張經理', '王小明'
+2. **Chinese Meeting Content**: Verify proper processing of Chinese transcript text
+3. **Chinese File Paths**: Test SharePoint paths like '/sites/團隊網站/Shared Documents/會議錄影'
+4. **Export with Chinese**: Ensure all export formats handle Chinese characters correctly
+
 ## Manual Execution Commands
 
 ### Running Specific Tests

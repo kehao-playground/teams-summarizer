@@ -112,9 +112,25 @@ https://{tenant}.sharepoint.com/personal/{user}/_layouts/15/stream.aspx?id=/pers
 
 ### Testing
 
-- **Automated Tests**: 352 passing unit/integration tests
+## Testing Status
+- **Unit Tests**: 352 passing
+- **BDD Smoke Tests**: 8/8 scenarios passing (100%)
+- **BDD Regression Tests**: 51/80 scenarios passing (29 undefined)
+- **E2E Tests**: 18 scenarios (manual testing required)
+- **API Integration Tests**: 2 scenarios (requires API keys)
 - **Manual Testing**: See [Manual Testing Guide](./MANUAL_TESTING_GUIDE.md) for E2E and API integration tests
-- **BDD Tests**: Cucumber.js scenarios for behavior testing
+
+## Testing Commands
+```bash
+# Run all automated tests
+npm test
+
+# Run BDD tests
+npm run test:bdd
+
+# View test reports
+open test/bdd/reports/cucumber-report.html
+```
 
 ### Key Technologies
 
