@@ -1,5 +1,21 @@
 // Content script for detecting SharePoint Stream pages and extracting meeting metadata
 
+// Production-safe logging helper
+const contentLog = {
+  info: (message: string, ...args: any[]) => {
+    // Logging disabled in production for performance and compliance
+    void message; void args;
+  },
+  error: (message: string, ...args: any[]) => {
+    // Error logging disabled in production for security
+    void message; void args;
+  },
+  warn: (message: string, ...args: any[]) => {
+    // Warning logging disabled in production
+    void message; void args;
+  }
+};
+
 interface MeetingInfo {
   url: string;
   title: string;
@@ -38,7 +54,7 @@ class StreamPageDetector {
       const meetingPath = url.searchParams.get('id');
       
       if (!meetingPath) {
-        console.warn('No meeting path found in URL');
+        contentLog.warn('No meeting path found in URL');
         return null;
       }
 
@@ -64,11 +80,11 @@ class StreamPageDetector {
         meetingPath: decodeURIComponent(meetingPath)
       };
 
-      console.log('Extracted meeting info:', this.meetingInfo);
+      contentLog.info('Extracted meeting info:', this.meetingInfo);
       return this.meetingInfo;
 
     } catch (error) {
-      console.error('Error extracting meeting info:', error);
+      contentLog.error('Error extracting meeting info:', error);
       return null;
     }
   }
@@ -142,7 +158,7 @@ class StreamPageDetector {
       }
 
     } catch (error) {
-      console.error('Error extracting video data:', error);
+      contentLog.error('Error extracting video data:', error);
     }
 
     return result;
@@ -174,7 +190,7 @@ class StreamPageDetector {
           sendResponse({ meetingInfo: this.meetingInfo });
         }
       } catch (error) {
-        console.warn('Content script message handler error:', error);
+        contentLog.warn('Content script message handler error:', error);
       }
       return true; // Keep message channel open
     });
@@ -224,7 +240,7 @@ let detector: StreamPageDetector | null = null;
 
 function initializeContentScript() {
   if (!chrome.runtime?.id) {
-    console.warn('Extension context not available');
+    contentLog.warn('Extension context not available');
     return;
   }
   
@@ -232,7 +248,7 @@ function initializeContentScript() {
     detector = new StreamPageDetector();
     detector.monitorPageChanges();
   } catch (error) {
-    console.warn('Failed to initialize content script:', error);
+    contentLog.warn('Failed to initialize content script:', error);
   }
 }
 
@@ -240,7 +256,7 @@ function initializeContentScript() {
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name === 'contentScript') {
     port.onDisconnect.addListener(() => {
-      console.log('Extension disconnected, cleaning up...');
+      contentLog.info('Extension disconnected, cleaning up...');
       if (detector) {
         detector = null;
       }

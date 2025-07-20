@@ -1,5 +1,21 @@
 // Background service worker for handling API calls and session management
 
+// Production-safe logging helper
+const backgroundLog = {
+  info: (message: string, ...args: any[]) => {
+    // Logging disabled in production for performance and compliance
+    void message; void args;
+  },
+  error: (message: string, ...args: any[]) => {
+    // Error logging disabled in production for security
+    void message; void args;
+  },
+  warn: (message: string, ...args: any[]) => {
+    // Warning logging disabled in production
+    void message; void args;
+  }
+};
+
 interface MeetingInfo {
   url: string;
   title: string;
@@ -71,9 +87,9 @@ class BackgroundService {
         timestamp: Date.now()
       };
 
-      console.log('Session captured successfully');
+      backgroundLog.info('Session captured successfully');
     } catch (error) {
-      console.error('Error capturing session:', error);
+      backgroundLog.error('Error capturing session:', error);
     }
   }
 
@@ -112,7 +128,7 @@ class BackgroundService {
       sendResponse({ transcript });
 
     } catch (error) {
-      console.error('Error extracting transcript:', error);
+      backgroundLog.error('Error extracting transcript:', error);
       sendResponse({ error: this.getErrorMessage(error) });
     } finally {
       this.isProcessing = false;
@@ -178,7 +194,7 @@ class BackgroundService {
       sendResponse({ summary });
 
     } catch (error) {
-      console.error('Error generating summary:', error);
+      backgroundLog.error('Error generating summary:', error);
       sendResponse({ error: this.getErrorMessage(error) });
     } finally {
       this.isProcessing = false;
@@ -413,7 +429,7 @@ ${sections.decisions.map((d: string) => d).join('\n')}
     setInterval(() => {
       if (this.sessionData && this.isSessionExpired()) {
         this.sessionData = null;
-        console.log('Expired session data cleaned up');
+        backgroundLog.info('Expired session data cleaned up');
       }
     }, 30 * 60 * 1000);
   }
@@ -428,20 +444,19 @@ ${sections.decisions.map((d: string) => d).join('\n')}
 }
 
 // Initialize background service
-let backgroundService: BackgroundService | null = null;
 
 function initializeBackground() {
   try {
-    backgroundService = new BackgroundService();
+    new BackgroundService();
   } catch (error) {
-    console.error('Failed to initialize background service:', error);
+    backgroundLog.error('Failed to initialize background service:', error);
   }
 }
 
 // Handle extension installation
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
-    console.log('Teams Meeting Summarizer installed');
+    backgroundLog.info('Teams Meeting Summarizer installed');
   }
 });
 
