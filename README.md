@@ -12,6 +12,23 @@ A Chrome Extension that extracts Microsoft Teams meeting transcripts from ShareP
 - ✅ **Secure API key storage** using Chrome's encrypted storage
 - ✅ **Client-side processing** - no backend dependencies
 
+## Product Demo
+
+### Main Interface
+The extension popup provides a clean, intuitive interface for meeting transcript extraction and summary generation.
+
+![Main Interface](docs/screenshots/01-main-interface.png)
+
+### AI-Generated Summary Output
+View structured summaries with key points and action items, with options to export in multiple formats.
+
+![Summary Output](docs/screenshots/02-summary-output.png)
+
+### Advanced Settings
+Configure your AI provider, API credentials, output language, and summary templates to customize your experience.
+
+![Settings Configuration](docs/screenshots/03-settings-config.png)
+
 ## Installation
 
 ### Development Setup

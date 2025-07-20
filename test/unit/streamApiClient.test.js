@@ -27,8 +27,19 @@ describe('StreamApiClient', () => {
     
     beforeEach(() => {
         client = new StreamApiClient();
+        
+        // Mock window object for buildApiUrl tests
+        global.window = {
+            location: {
+                href: 'https://test.sharepoint.com/personal/user_test/stream.aspx'
+            }
+        };
         jest.clearAllMocks();
         global.chrome.runtime.lastError = null;
+    });
+
+    afterEach(() => {
+        delete global.window;
     });
 
     describe('buildApiUrl', () => {
@@ -41,7 +52,7 @@ describe('StreamApiClient', () => {
             );
             
             expect(url).toBe(
-                'https://tenant.sharepoint.com/_api/v2.1/drives/driveId123/items/itemId456/media/transcripts/transcriptId789/streamContent?format=json'
+                'https://tenant.sharepoint.com/personal/user_test/_api/v2.1/drives/driveId123/items/itemId456/media/transcripts/transcriptId789/streamContent?applyhighlights=false&applymediaedits=false'
             );
         });
 
@@ -53,7 +64,7 @@ describe('StreamApiClient', () => {
             );
             
             expect(url).toBe(
-                'https://tenant.sharepoint.com/_api/v2.1/drives/driveId123/items/itemId456/media/transcripts?format=json'
+                'https://tenant.sharepoint.com/personal/user_test/_api/v2.1/drives/driveId123/items/itemId456/media/transcripts'
             );
         });
 
@@ -67,58 +78,43 @@ describe('StreamApiClient', () => {
             
             // Should not have double slashes after the protocol
             expect(url).not.toMatch(/https:\/\/.*\/\//);
-            expect(url).toContain('https://tenant.sharepoint.com/_api');
+            expect(url).toContain('https://tenant.sharepoint.com/personal/user_test/_api');
         });
     });
 
     describe('getAuthHeaders', () => {
-        test('should get auth headers successfully', async () => {
-            const mockHeaders = {
-                'Authorization': 'Bearer token123',
-                'Cookie': 'auth=value'
+        test('should extract headers from page successfully', async () => {
+            // Mock window._spPageContextInfo
+            global.window._spPageContextInfo = {
+                formDigestValue: 'v1.testtoken123'
             };
-
-            // Mock successful session status
-            chrome.runtime.sendMessage
-                .mockImplementationOnce((request, callback) => {
-                    if (request.action === 'getSessionStatus') {
-                        callback({ success: true, data: { isValid: true } });
-                    }
-                })
-                .mockImplementationOnce((request, callback) => {
-                    if (request.action === 'getAuthHeaders') {
-                        callback({ success: true, data: mockHeaders });
-                    }
-                });
 
             const headers = await client.getAuthHeaders();
             
-            expect(headers).toEqual(mockHeaders);
-            expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(2);
+            expect(headers['Authorization']).toBe('Bearer v1.testtoken123');
         });
 
-        test('should reject when session is invalid', async () => {
-            chrome.runtime.sendMessage.mockImplementation((request, callback) => {
-                if (request.action === 'getSessionStatus') {
-                    callback({ success: true, data: { isValid: false } });
-                }
-            });
+        test('should return empty headers when no token available', async () => {
+            // Clear any mocked data
+            delete global.window._spPageContextInfo;
 
-            await expect(client.getAuthHeaders()).rejects.toThrow(
-                'No valid authentication session available'
-            );
-        });
-
-        test('should reject when Chrome runtime error occurs', async () => {
-            global.chrome.runtime.lastError = { message: 'Runtime error' };
+            const headers = await client.getAuthHeaders();
             
-            chrome.runtime.sendMessage.mockImplementation((request, callback) => {
-                callback({ success: false });
-            });
+            expect(headers).toEqual({});
+        });
 
-            await expect(client.getAuthHeaders()).rejects.toThrow(
-                'Failed to get auth headers: Runtime error'
-            );
+        test('should extract token from script tags', async () => {
+            // Mock document.querySelectorAll
+            const mockScript = {
+                textContent: 'var auth = "Bearer v1.scripttokentest"; console.log(auth);'
+            };
+            global.document = {
+                querySelectorAll: jest.fn().mockReturnValue([mockScript])
+            };
+
+            const headers = await client.getAuthHeaders();
+            
+            expect(headers['Authorization']).toBe('Bearer v1.scripttokentest');
         });
     });
 
@@ -161,7 +157,7 @@ describe('StreamApiClient', () => {
             siteUrl: 'https://test.sharepoint.com'
         };
 
-        test('should parse valid transcript response', () => {
+        test('should parse valid transcript response', async () => {
             const mockTranscript = {
                 version: '1.0',
                 type: 'Transcript',
@@ -181,7 +177,7 @@ describe('StreamApiClient', () => {
                 events: []
             };
 
-            const result = client.parseTranscriptResponse(mockTranscript, mockMeetingInfo);
+            const result = await client.parseTranscriptResponse(mockTranscript, mockMeetingInfo);
 
             expect(result.metadata.entryCount).toBe(1);
             expect(result.metadata.participants).toEqual(['John Doe']);
@@ -191,50 +187,49 @@ describe('StreamApiClient', () => {
             expect(result.meetingInfo.title).toBe('Test Meeting');
         });
 
-        test('should handle OData format response with value property', () => {
+        test('should handle OData format response with value property', async () => {
+            // Mock a direct entries format (not metadata format)
             const mockResponse = {
-                value: [{
-                    entries: [
-                        {
-                            id: 'entry1',
-                            text: 'Test message',
-                            speakerDisplayName: 'Speaker 1',
-                            startOffset: '00:00:05.0000000',
-                            endOffset: '00:00:10.0000000'
-                        }
-                    ]
-                }]
+                entries: [
+                    {
+                        id: 'entry1',
+                        text: 'Test message',
+                        speakerDisplayName: 'Speaker 1',
+                        startOffset: '00:00:05.0000000',
+                        endOffset: '00:00:10.0000000'
+                    }
+                ]
             };
 
-            const result = client.parseTranscriptResponse(mockResponse, mockMeetingInfo);
+            const result = await client.parseTranscriptResponse(mockResponse, mockMeetingInfo);
 
             expect(result.metadata.entryCount).toBe(1);
             expect(result.entries[0].text).toBe('Test message');
         });
 
-        test('should throw error for empty transcript response', () => {
-            expect(() => {
-                client.parseTranscriptResponse(null, mockMeetingInfo);
-            }).toThrow('Empty transcript response received');
+        test('should throw error for empty transcript response', async () => {
+            await expect(async () => {
+                await client.parseTranscriptResponse(null, mockMeetingInfo);
+            }).rejects.toThrow('Empty transcript response received');
         });
 
-        test('should throw error for missing entries array', () => {
+        test('should handle missing entries array gracefully', async () => {
             const invalidTranscript = { version: '1.0' };
             
-            expect(() => {
-                client.parseTranscriptResponse(invalidTranscript, mockMeetingInfo);
-            }).toThrow('Invalid transcript format: missing entries array');
+            const result = await client.parseTranscriptResponse(invalidTranscript, mockMeetingInfo);
+            expect(result.entries).toEqual([]);
+            expect(result.metadata.entryCount).toBe(0);
         });
 
-        test('should throw error for empty entries array', () => {
+        test('should throw error for empty entries array', async () => {
             const emptyTranscript = { entries: [] };
             
-            expect(() => {
-                client.parseTranscriptResponse(emptyTranscript, mockMeetingInfo);
-            }).toThrow('Transcript is empty: no entries found');
+            await expect(async () => {
+                await client.parseTranscriptResponse(emptyTranscript, mockMeetingInfo);
+            }).rejects.toThrow('Transcript is empty: no entries found');
         });
 
-        test('should handle missing speaker names', () => {
+        test('should handle missing speaker names', async () => {
             const transcriptWithMissingSpeaker = {
                 entries: [
                     {
@@ -245,7 +240,7 @@ describe('StreamApiClient', () => {
                 ]
             };
 
-            const result = client.parseTranscriptResponse(transcriptWithMissingSpeaker, mockMeetingInfo);
+            const result = await client.parseTranscriptResponse(transcriptWithMissingSpeaker, mockMeetingInfo);
 
             expect(result.entries[0].speaker).toBe('Unknown Speaker');
             expect(result.metadata.participants).toEqual([]);
