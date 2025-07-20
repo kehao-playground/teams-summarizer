@@ -1,25 +1,25 @@
 /**
- * OpenAI API Client for Teams Transcript Chrome Extension
- * Handles GPT 4.1 integration for meeting summary generation
+ * Anthropic Claude API Client for Teams Transcript Chrome Extension
+ * Handles Claude Sonnet 4 integration for meeting summary generation
  */
 
 // Constants
-const OPENAI_API_BASE = 'https://api.openai.com/v1';
-const MODEL_GPT_4_1 = 'gpt-4.1';
-const MAX_TOKENS_OUTPUT = 32768;
+const ANTHROPIC_API_BASE = 'https://api.anthropic.com/v1';
+const MODEL_CLAUDE_SONNET_4 = 'claude-3-5-sonnet-20241022'; // Latest Claude Sonnet 4
+const MAX_TOKENS_OUTPUT = 8192; // Conservative limit for summaries
 const API_TIMEOUT = 60000; // 60 seconds for AI processing
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 2000; // 2 seconds
 const MAX_RETRY_DELAY = 16000; // 16 seconds
 
-// Token limits and context windows
+// Context window limits for Claude models
 const CONTEXT_LIMITS = {
-  'gpt-4.1': 1047576, // 1M+ tokens context window
-  'gpt-4': 128000,    // Fallback model
-  'gpt-3.5-turbo': 16385 // Emergency fallback
+  'claude-3-5-sonnet-20241022': 200000, // 200k tokens context window
+  'claude-3-opus-20240229': 200000,     // Fallback model
+  'claude-3-haiku-20240307': 200000     // Emergency fallback
 };
 
-// Default prompts for different summary types
+// Default prompts adapted for Claude's format
 const DEFAULT_PROMPTS = {
   default: `You are an expert meeting summarizer. Please analyze the provided meeting transcript and generate a comprehensive summary.
 
@@ -89,9 +89,9 @@ Use technical terminology appropriately and preserve technical context from the 
 };
 
 /**
- * OpenAI API Client class
+ * Anthropic Claude API Client class
  */
-class OpenAIClient {
+class AnthropicClient {
     constructor() {
         this.apiKey = null;
         this.retryCount = 0;
@@ -101,19 +101,19 @@ class OpenAIClient {
 
     /**
      * Initialize the client with API key
-     * @param {string} apiKey - OpenAI API key
+     * @param {string} apiKey - Anthropic API key
      */
     async initialize(apiKey) {
         if (!apiKey) {
-            throw new Error('OpenAI API key is required');
+            throw new Error('Anthropic API key is required');
         }
 
         if (!this.validateApiKey(apiKey)) {
-            throw new Error('Invalid OpenAI API key format');
+            throw new Error('Invalid Anthropic API key format');
         }
 
         this.apiKey = apiKey;
-        console.log('[OpenAIClient] Initialized with API key');
+        console.log('[AnthropicClient] Initialized with API key');
         
         // Test the API key
         await this.testConnection();
@@ -124,28 +124,35 @@ class OpenAIClient {
      */
     async testConnection() {
         try {
-            console.log('[OpenAIClient] Testing API connection...');
+            console.log('[AnthropicClient] Testing API connection...');
             
-            const response = await fetch(`${OPENAI_API_BASE}/models`, {
-                method: 'GET',
+            // Claude doesn't have a models endpoint, so we'll make a minimal test call
+            const response = await fetch(`${ANTHROPIC_API_BASE}/messages`, {
+                method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
-                    'Content-Type': 'application/json'
-                }
+                    'x-api-key': this.apiKey,
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: MODEL_CLAUDE_SONNET_4,
+                    max_tokens: 10,
+                    messages: [{
+                        role: 'user',
+                        content: 'Test'
+                    }]
+                })
             });
 
             if (!response.ok) {
                 throw new Error(`API test failed: ${response.status} ${response.statusText}`);
             }
 
-            const data = await response.json();
-            const availableModels = data.data.map(model => model.id);
-            
-            console.log('[OpenAIClient] API connection successful. Available models:', availableModels.slice(0, 5));
+            console.log('[AnthropicClient] API connection successful');
             return true;
         } catch (error) {
-            console.error('[OpenAIClient] API connection test failed:', error);
-            throw new Error(`OpenAI API connection failed: ${error.message}`);
+            console.error('[AnthropicClient] API connection test failed:', error);
+            throw new Error(`Anthropic API connection failed: ${error.message}`);
         }
     }
 
@@ -157,19 +164,19 @@ class OpenAIClient {
      */
     async generateSummary(formattedTranscript, options = {}) {
         if (!this.apiKey) {
-            throw new Error('OpenAI client not initialized. Please provide API key.');
+            throw new Error('Anthropic client not initialized. Please provide API key.');
         }
 
         const {
             promptType = 'default',
             customPrompt = null,
             language = 'en',
-            model = MODEL_GPT_4_1,
+            model = MODEL_CLAUDE_SONNET_4,
             temperature = 0.3,
             maxTokens = MAX_TOKENS_OUTPUT
         } = options;
 
-        console.log('[OpenAIClient] Generating summary with options:', {
+        console.log('[AnthropicClient] Generating summary with options:', {
             promptType,
             language,
             model,
@@ -187,7 +194,7 @@ class OpenAIClient {
                 return await this.generateSingleSummary(formattedTranscript, options);
             }
         } catch (error) {
-            console.error('[OpenAIClient] Summary generation failed:', error);
+            console.error('[AnthropicClient] Summary generation failed:', error);
             throw this.createDetailedError(error);
         }
     }
@@ -200,7 +207,7 @@ class OpenAIClient {
             promptType = 'default',
             customPrompt = null,
             language = 'en',
-            model = MODEL_GPT_4_1,
+            model = MODEL_CLAUDE_SONNET_4,
             temperature = 0.3,
             maxTokens = MAX_TOKENS_OUTPUT
         } = options;
@@ -209,16 +216,13 @@ class OpenAIClient {
         const systemPrompt = this.buildSystemPrompt(promptType, customPrompt, language);
         const userMessage = this.buildUserMessage(formattedTranscript);
 
-        const messages = [
-            {
-                role: 'system',
-                content: systemPrompt
-            },
-            {
-                role: 'user',
-                content: userMessage
-            }
-        ];
+        // Claude uses a different message format - combine system and user
+        const content = `${systemPrompt}\n\n${userMessage}`;
+
+        const messages = [{
+            role: 'user',
+            content: content
+        }];
 
         // Make API call with retry logic
         const response = await this.callWithRetry(model, messages, {
@@ -234,17 +238,17 @@ class OpenAIClient {
      * Generate summary for large transcript using chunking
      */
     async generateChunkedSummary(formattedTranscript, options) {
-        console.log('[OpenAIClient] Large transcript detected, using chunking strategy');
+        console.log('[AnthropicClient] Large transcript detected, using chunking strategy');
         
         // This is a placeholder for chunking implementation
-        // For Task 8, we'll implement basic chunking
+        // For Task 9, we'll implement basic chunking
         // More sophisticated chunking will be implemented in Task 13
         
         const chunks = this.createBasicChunks(formattedTranscript);
         const summaries = [];
 
         for (let i = 0; i < chunks.length; i++) {
-            console.log(`[OpenAIClient] Processing chunk ${i + 1}/${chunks.length}`);
+            console.log(`[AnthropicClient] Processing chunk ${i + 1}/${chunks.length}`);
             
             const chunkSummary = await this.generateSingleSummary(chunks[i], {
                 ...options,
@@ -269,7 +273,7 @@ class OpenAIClient {
 
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
             try {
-                console.log(`[OpenAIClient] API call attempt ${attempt + 1}/${MAX_RETRIES + 1}`);
+                console.log(`[AnthropicClient] API call attempt ${attempt + 1}/${MAX_RETRIES + 1}`);
                 
                 // Check rate limits
                 await this.checkRateLimit();
@@ -295,7 +299,7 @@ class OpenAIClient {
                         MAX_RETRY_DELAY
                     );
                     
-                    console.log(`[OpenAIClient] Request failed, retrying in ${delay}ms...`, error.message);
+                    console.log(`[AnthropicClient] Request failed, retrying in ${delay}ms...`, error.message);
                     await this.sleep(delay);
                 }
             }
@@ -306,7 +310,7 @@ class OpenAIClient {
     }
 
     /**
-     * Make the actual API call to OpenAI
+     * Make the actual API call to Anthropic
      */
     async makeApiCall(model, messages, parameters) {
         const controller = new AbortController();
@@ -319,18 +323,17 @@ class OpenAIClient {
                 model: model,
                 messages: messages,
                 temperature: parameters.temperature || 0.3,
-                max_tokens: parameters.max_tokens || MAX_TOKENS_OUTPUT,
-                stream: false,
-                user: 'teams-transcript-extension'
+                max_tokens: parameters.max_tokens || MAX_TOKENS_OUTPUT
             };
 
-            console.log('[OpenAIClient] Making API request to OpenAI');
+            console.log('[AnthropicClient] Making API request to Anthropic');
 
-            const response = await fetch(`${OPENAI_API_BASE}/chat/completions`, {
+            const response = await fetch(`${ANTHROPIC_API_BASE}/messages`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
-                    'Content-Type': 'application/json',
+                    'x-api-key': this.apiKey,
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json',
                     'User-Agent': 'Teams-Transcript-Extension/1.0'
                 },
                 body: JSON.stringify(requestBody),
@@ -352,7 +355,7 @@ class OpenAIClient {
 
             const data = await response.json();
             
-            console.log('[OpenAIClient] API call successful', {
+            console.log('[AnthropicClient] API call successful', {
                 usage: data.usage,
                 model: data.model
             });
@@ -425,7 +428,7 @@ ${content}`;
      * Format the API response into structured summary
      */
     formatSummaryResponse(apiResponse, metadata) {
-        const content = apiResponse.choices[0]?.message?.content || '';
+        const content = apiResponse.content[0]?.text || '';
         
         return {
             summary: content,
@@ -444,10 +447,10 @@ ${content}`;
      * Check if transcript needs chunking based on token limits
      */
     async checkTokenLimits(formattedTranscript, model) {
-        const contextLimit = CONTEXT_LIMITS[model] || CONTEXT_LIMITS['gpt-4'];
+        const contextLimit = CONTEXT_LIMITS[model] || CONTEXT_LIMITS['claude-3-5-sonnet-20241022'];
         const estimatedTokens = this.estimateTokenCount(formattedTranscript.content);
         
-        console.log('[OpenAIClient] Token estimation:', {
+        console.log('[AnthropicClient] Token estimation:', {
             estimated: estimatedTokens,
             contextLimit: contextLimit,
             needsChunking: estimatedTokens > (contextLimit * 0.8) // Use 80% of limit for safety
@@ -470,7 +473,7 @@ ${content}`;
      * Create basic chunks for large transcripts
      */
     createBasicChunks(formattedTranscript) {
-        // Basic chunking implementation for Task 8
+        // Basic chunking implementation for Task 9
         // More sophisticated chunking will be in Task 13
         const sections = formattedTranscript.sections;
         const chunkSize = Math.ceil(sections.length / 3); // Split into 3 chunks max
@@ -508,18 +511,12 @@ ${combinedContent}
 
 Create a unified summary that captures the key points from all sections while avoiding repetition.`;
 
-        const messages = [
-            {
-                role: 'system', 
-                content: this.buildSystemPrompt(options.promptType, null, options.language)
-            },
-            {
-                role: 'user',
-                content: combinePrompt
-            }
-        ];
+        const messages = [{
+            role: 'user',
+            content: `${this.buildSystemPrompt(options.promptType, null, options.language)}\n\n${combinePrompt}`
+        }];
 
-        const response = await this.callWithRetry(options.model || MODEL_GPT_4_1, messages, {
+        const response = await this.callWithRetry(options.model || MODEL_CLAUDE_SONNET_4, messages, {
             temperature: options.temperature || 0.3,
             max_tokens: MAX_TOKENS_OUTPUT
         });
@@ -533,7 +530,7 @@ Create a unified summary that captures the key points from all sections while av
     async checkRateLimit() {
         if (this.rateLimitReset > Date.now()) {
             const waitTime = this.rateLimitReset - Date.now();
-            console.log(`[OpenAIClient] Rate limit active, waiting ${waitTime}ms`);
+            console.log(`[AnthropicClient] Rate limit active, waiting ${waitTime}ms`);
             await this.sleep(waitTime);
         }
     }
@@ -556,7 +553,7 @@ Create a unified summary that captures the key points from all sections while av
 
         switch (status) {
             case 401:
-                throw new Error(`Invalid API key (${status}). Please check your OpenAI API key.`);
+                throw new Error(`Invalid API key (${status}). Please check your Anthropic API key.`);
             case 403:
                 throw new Error(`Access forbidden (${status}). Your API key may not have the required permissions.`);
             case 429:
@@ -565,7 +562,7 @@ Create a unified summary that captures the key points from all sections while av
             case 502:
             case 503:
             case 504:
-                throw new Error(`OpenAI server error (${status}). Please try again later.`);
+                throw new Error(`Anthropic server error (${status}). Please try again later.`);
             default:
                 throw new Error(errorMessage);
         }
@@ -596,14 +593,13 @@ Create a unified summary that captures the key points from all sections while av
     }
 
     /**
-     * Validate OpenAI API key format
+     * Validate Anthropic API key format
      */
     validateApiKey(apiKey) {
         if (!apiKey || typeof apiKey !== 'string') {
             return false;
         }
-        // OpenAI keys start with 'sk-' but not 'sk-ant-'
-        return apiKey.startsWith('sk-') && !apiKey.startsWith('sk-ant-') && apiKey.length >= 20;
+        return apiKey.startsWith('sk-ant-') && apiKey.length >= 20;
     }
 
     /**
@@ -611,7 +607,7 @@ Create a unified summary that captures the key points from all sections while av
      */
     createDetailedError(originalError) {
         const error = new Error(originalError.message);
-        error.name = 'OpenAIClientError';
+        error.name = 'AnthropicClientError';
         error.originalError = originalError;
         error.timestamp = new Date().toISOString();
         error.retryCount = this.retryCount;
@@ -630,37 +626,36 @@ Create a unified summary that captures the key points from all sections while av
      * Get available models (for debugging/validation)
      */
     async getAvailableModels() {
-        if (!this.apiKey) {
-            throw new Error('API key required');
-        }
-
-        const response = await fetch(`${OPENAI_API_BASE}/models`, {
-            headers: {
-                'Authorization': `Bearer ${this.apiKey}`
+        // Claude doesn't have a models endpoint, return static list
+        return [
+            {
+                id: 'claude-3-5-sonnet-20241022',
+                name: 'Claude 3.5 Sonnet',
+                contextWindow: 200000
+            },
+            {
+                id: 'claude-3-opus-20240229',
+                name: 'Claude 3 Opus',
+                contextWindow: 200000
+            },
+            {
+                id: 'claude-3-haiku-20240307',
+                name: 'Claude 3 Haiku',
+                contextWindow: 200000
             }
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to fetch models: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data.data.map(model => ({
-            id: model.id,
-            created: new Date(model.created * 1000).toISOString()
-        }));
+        ];
     }
 }
 
 // Create singleton instance
-const openaiClient = new OpenAIClient();
+const anthropicClient = new AnthropicClient();
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { OpenAIClient, openaiClient, DEFAULT_PROMPTS };
+    module.exports = { AnthropicClient, anthropicClient, DEFAULT_PROMPTS };
 } else {
     // Browser environment - attach to window
-    window.OpenAIClient = OpenAIClient;
-    window.openaiClient = openaiClient;
-    window.OPENAI_DEFAULT_PROMPTS = DEFAULT_PROMPTS;
+    window.AnthropicClient = AnthropicClient;
+    window.anthropicClient = anthropicClient;
+    window.ANTHROPIC_DEFAULT_PROMPTS = DEFAULT_PROMPTS;
 }
